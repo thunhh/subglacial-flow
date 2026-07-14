@@ -21,7 +21,10 @@ function grounding_lines_1d()
     hh  = zeros(nx + 2) # add 2 ghost cells
     φ   = zeros(nx)
     ∇φ  = zeros(nx - 1)
+    φ_1st   = zeros(nx)
+    ∇φ_1st  = zeros(nx - 1)
     q   = zeros(nx + 1) # also boundary fluxes (interior would be nx - 1)
+    q_1st = zeros(nx + 1)
     σnn = zeros(nx)
     sl  = ones(nx)
     h_neg = zeros(nx+2)
@@ -53,33 +56,65 @@ function grounding_lines_1d()
         @. φ  = σnn + ρʷg * (B + hh[2:end-1])
         @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
 
+        @. φ_1st  = σnn + ρʷg * (B + h)
+        @. ∇φ_1st = (φ_1st[2:end] - φ_1st[1:end-1]) / dx
+
+        
+        @assert hh[2:end-1] ≈ h # are equal
+        @assert φ_1st ≈ φ # are not equal
+        @assert ∇φ_1st ≈ ∇φ # are equal
+
         # slope limiter
-        dif1 = hh[2:end-1] - hh[1:end-2]
-        dif2 = hh[3:end] - hh[2:end-1]
-        @. sl = ifelse(dif2 .== 0, 0.0, dif1./dif2) # or set it to 1.0
+        # dif1 = hh[2:end-1] - hh[1:end-2]
+        # dif2 = hh[3:end] - hh[2:end-1]
+        # @. sl = ifelse(dif2 .== 0, 1.0, dif1./dif2)
 
         # @. sl = (h[2:end-1] - h[1:end-2]) / (h[3:end] - h[2:end-1]) -> leads to NaNs
-        @. limiter = (sl + abs(sl)) / (1 + abs(sl))
+        # @. limiter = (sl + abs(sl)) / (1 + abs(sl))
         # für h_neg(i = 1) bräuchte ich i = 0 für limiter, existiert nicht, deshalb bei 2 starten und end -1 enden
         h_neg = copy(hh)
         h_pos = copy(hh)
         @. h_neg[2:end-1] += 0.5 * limiter[1:end] * (hh[3:end] - hh[2:end-1])
         @. h_pos[2:end-1] -= 0.5 * limiter[1:end] * (hh[3:end] - hh[2:end-1])
 
+        @assert h_neg[2:end-1] ≈ h
+        @assert h_pos[2:end-1] ≈ h
 
         # 2nd order scheme for Darcy(-Weisbach) water flux
         # update interior fluxes
         @. q[2:end-1] = -k * 0.5 * (h_neg[2:end-2] + h_pos[3:end-1]) * ∇φ - k * 0.5 * abs(∇φ) * (h_pos[3:end-1] - h_neg[2:end-2])
+
+        # Darcy(-Weisbach) water flux
+        @. q_1st[2:end-1] = -k * 0.5 * (h[1:end-1] + h[2:end]) * ∇φ - k * 0.5 * abs(∇φ) * (h[2:end] - h[1:end-1])
+        @assert q_1st ≈ q 
 
         # advective time step
         dta = dx / k / maximum(abs, ∇φ) / 2.1
         # diffusive time step
         dtd = dx^2 / (k * ρʷg * maximum(hh)) / 2.1
         dt = min(dta, dtd) 
- 
+
+        dta_1st = dx / k / maximum(abs, ∇φ_1st) / 2.1
+        # diffusive time step
+        dtd_1st = dx^2 / (k * ρʷg * maximum(h)) / 2.1
+        dt_1st = min(dta_1st, dtd_1st) 
+
+        # dt = 1.356e-4 * 3600 * 24
+        # dt_1st = 1.356e-4 * 3600 *24  
+
         # update water sheet thickness using explicit euler scheme
         # y' approx. by (q[2:end] - q[1:end-1]) / dx forward differnces
         @. hh[2:end-1] -= dt * (q[2:end] - q[1:end-1]) / dx
+        @. h -= dt_1st * (q_1st[2:end] - q_1st[1:end-1]) / dx
+        # before φ
+        @assert isapprox(
+            dt * (q[2:end] - q[1:end-1]) / dx,
+            dt_1st * (q_1st[2:end] - q_1st[1:end-1]) / dx,
+            rtol=1e-12
+        )
+
+        @assert hh[2:end-1] ≈ h
+
 
         # boundary conditions -> how to def. ghost cells?
         hh[end-1] = 4.2e3
@@ -87,13 +122,16 @@ function grounding_lines_1d()
         #hh[1] = hh[2]
         h[end] = 4.2e3
 
+        
+        
+   
 
         # update plot
         if it % nvis == 0
             @printf(" t = %1.7f d, dt [adv] = %1.3e d, dt [dif] = %1.3e d\n", tcur / 3600 / 24, dta / 3600 / 24, dtd / 3600 / 24)
-    
+            # compare the qs
+            #@assert isapprox(q_1st, q, atol=1e-14)
             println("iteration", it)
-            println("slope = ", sl)
             plt[2][3] = B .+ hh[2:end-1]
             plt[3][2] = B .+ hh[2:end-1]
             plt[3][3] = B .+ hh[2:end-1] .+ H

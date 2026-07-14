@@ -7,6 +7,8 @@ function grounding_lines_1d()
     k   = 0.001
     ρⁱg = 910.0 * 9.81
     ρʷg = 1000.0 * 9.81
+    alpha = 5/4
+    betha = 3/2
     # numerics
     nx   = 100
     nt   = 100000 #100000
@@ -69,7 +71,10 @@ function grounding_lines_1d()
 
         # 2nd order scheme for Darcy(-Weisbach) water flux
         # update interior fluxes
-        @. q[2:end-1] = -k * 0.5 * (h_neg[2:end-2] + h_pos[3:end-1]) * ∇φ - k * 0.5 * abs(∇φ) * (h_pos[3:end-1] - h_neg[2:end-2])
+        #@. q[2:end-1] = -k * 0.5 * (h_neg[2:end-2] + h_pos[3:end-1]) * ∇φ - k * 0.5 * abs(∇φ) * (h_pos[3:end-1] - h_neg[2:end-2])
+        # nonlinear fluxes
+        @. q[2:end-2] = -k * 0.5 * (h_neg[2:end-3]^alpha * abs(∇φ[1:end-1])^(betha - 2) + h_pos[3:end-2]^alpha * abs(∇φ[2:end])^(betha - 2)) * ∇φ[1:end-1] - k * 0.5 * abs(∇φ[1:end-1]) * (h_pos[3:end-2] - h_neg[2:end-3])
+
 
         # advective time step
         dta = dx / k / maximum(abs, ∇φ) / 2.1

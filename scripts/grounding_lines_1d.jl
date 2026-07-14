@@ -10,7 +10,7 @@ function grounding_lines_1d()
     # numerics
     nx   = 100
     nt   = 100000 #100000
-    nvis = 10000 # 1000
+    nvis = 20000 # 1000
     # preprocessing
     dx = lx / (nx - 1)
     xn = LinRange(0, lx, nx)

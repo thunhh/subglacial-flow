@@ -69,6 +69,7 @@ function grounding_lines_1d()
 
         # 2nd order scheme for Darcy(-Weisbach) water flux
         # update interior fluxes
+        #println(h)
         @. q[2:end-1] = -k * 0.5 * (h_neg[2:end-2] + h_pos[3:end-1]) * ∇φ - k * 0.5 * abs(∇φ) * (h_pos[3:end-1] - h_neg[2:end-2])
 
         # advective time step

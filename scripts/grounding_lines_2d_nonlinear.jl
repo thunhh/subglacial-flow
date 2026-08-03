@@ -25,18 +25,23 @@ function grounding_lines_1d()
     H   = zeros(nx, ny)
     B   = zeros(nx, ny)
     h   = zeros(nx, ny)
-    φ   = zeros(nx, ny)
-    ∇φ_h  = zeros(nx - 1, ny)
-    ∇φ_v  = zeros(nx, ny - 1)
-    q_h   = zeros(nx + 1, ny)
-    q_v   = zeros(nx, ny + 1)
+    # φ   = zeros(nx, ny)
+
+    # with ghost cells
+    φ   = zeros(nx + 2, ny + 2)
+
+    # ∇φ_h  = zeros(nx - 1, ny)
+    # ∇φ_v  = zeros(nx, ny - 1)
+    q_h   = zeros(nx, ny + 1)
+    q_v   = zeros(nx + 1, ny)
     σnn = zeros(nx, ny)
 
     epsi = 1e-5
-    A_h   = zeros(nx - 1, ny - 1)
-    A_v   = zeros(nx - 1, ny - 1)
-    a_h   = zeros(nx - 1, ny - 1)
-    a_v   = zeros(nx - 1, ny - 1)
+    
+    A_h   = zeros(nx, ny - 1)
+    A_v   = zeros(nx - 1, ny)
+    a_h   = zeros(nx, ny - 1)
+    a_v   = zeros(nx - 1, ny)
     σnn = zeros(nx, ny)
     # initialisation
     # H - ice thickness
@@ -75,22 +80,28 @@ function grounding_lines_1d()
     tcur = 0.0
     for it in 1:nt
         # (overburden) hydraulic potential = overburden pressure + elevation potential + water pressure
-        @. φ  = σnn + ρʷg * (B + h)
+        @. φ[2:end-1, 2:end-1]  = σnn + ρʷg * (B + h)
         @. ∇φ_h = (φ[2:end, :] - φ[1:end-1, :]) / dx
         @. ∇φ_v = (φ[:, 2:end] - φ[:, 1:end-1]) / dy
         # regularizor more complex
         #@. epsi = 1e-5 * mean(abs.((φ[2:end] - φ[1:end-1]) ./ (dx)))
-        
-        @. A_h = (((φ[2:end, 1:end - 1] - φ[1:end-1, 1:end-1]) / dx)^2 + ((φ[1:end-1, 2:end] - φ[1:end-1, 1:end-1]) / dy)^2 + epsi^2 )^(betha/2 - 1) * (φ[2:end, 1:end-1] - φ[1:end-1, 1:end-1]) / dx
-        @. A_v = (((φ[2:end, 1:end - 1] - φ[1:end-1, 1:end-1]) / dx)^2 + ((φ[1:end-1, 2:end] - φ[1:end-1, 1:end-1]) / dy)^2 + epsi^2 )^(betha/2 - 1) * (φ[1:end-1, 2:end] - φ[1:end-1, 1:end-1]) / dy
-        # @. A = abs(((φ[2:end] - φ[1:end-1]) / dx))^(betha - 2) * (φ[2:end] - φ[1:end-1]) / dx
 
-        @. a_h = alpha * max(h[1:end-1, 1:end-1], h[2:end, 1:end-1])^(alpha - 1)
-        @. a_v = alpha * max(h[1:end-1, 1:end-1], h[1:end-1, 2:end])^(alpha - 1)
+
+        # without ghost cells # incomplete
+        # @. A_v = (((φ[2:end, :] - φ[1:end-1, :])/dx)^2 + (I)^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, :] - φ[1:end-1, :]) / dx
+        # @. A_h = ((II)^2 + ((φ[:, 2:end] - φ[:, 1:end-1])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[:, 2:end] - φ[:, 1:end-1]) / dy
+
+        # with ghost cells
+        @. A_v = (((φ[3:end-1, 2:end] - φ[2:end-2, 2:end])/dx)^2 + (I)^2 + epsi^2)^(betha/2 - 1) * (φ[3:end-1, 2:end] - φ[2:end-2, 2:end]) / dx
+        @. A_h = ((II)^2 + ((φ[2:end, 3:end-1] - φ[2:end, 2:end-2])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, 3:end-1] - φ[:, 2:end-2]) / dy
+
+        # f is monotone function -> max of derivative of f is derivative of f at max (h) on intervall
+        @. a_v = alpha * max(h[1:end-1, :], h[2:end, :])^(alpha - 1)
+        @. a_h = alpha * max(h[:, 1:end-1], h[:, 2:end])^(alpha - 1)
          
         # Darcy(-Weisbach) water flux
-        @. q_h[2:end-1, 1:end-1] = -k * 0.5 * (h[1:end-1, 1:end-1]^alpha + h[2:end, 1:end-1]^alpha) * A_h - k * a_h * 0.5 * abs(A_h) * (h[2:end, 1:end-1] - h[1:end-1, 1:end-1])
-        @. q_v[1:end-1, 2:end-1] = -k * 0.5 * (h[1:end-1, 1:end-1]^alpha + h[1:end-1, 2:end]^alpha) * A_v - k * a_v * 0.5 * abs(A_v) * (h[1:end-1, 2:end] - h[1:end-1, 1:end-1])
+        @. q_v[2:end-1, :] = -k * 0.5 * (h[1:end-1, :]^alpha + h[2:end, :]^alpha) * A_v - k * a_v * 0.5 * abs(A_v) * (h[2:end, :] - h[1:end-1, :])
+        @. q_h[:, 2:end-1] = -k * 0.5 * (h[:, 1:end-1]^alpha + h[:, 2:end]^alpha) * A_h - k * a_h * 0.5 * abs(A_h) * (h[:, 2:end] - h[:, 1:end-1])
 
         # advective time step
         #dta = dx / k / maximum(abs, ∇φ) / 2.1

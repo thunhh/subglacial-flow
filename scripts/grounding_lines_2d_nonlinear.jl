@@ -25,13 +25,14 @@ function grounding_lines_1d()
     H   = zeros(nx, ny)
     B   = zeros(nx, ny)
     h   = zeros(nx, ny)
-    # φ   = zeros(nx, ny)
+    # without ghost cells
+    φ   = zeros(nx, ny)
 
     # with ghost cells
-    φ   = zeros(nx + 2, ny + 2)
+    # φ   = zeros(nx + 2, ny + 2)
 
-    # ∇φ_h  = zeros(nx - 1, ny)
-    # ∇φ_v  = zeros(nx, ny - 1)
+    ∇φ_h  = zeros(nx - 1, ny)
+    ∇φ_v  = zeros(nx, ny - 1)
     q_h   = zeros(nx, ny + 1)
     q_v   = zeros(nx + 1, ny)
     σnn = zeros(nx, ny)
@@ -40,6 +41,8 @@ function grounding_lines_1d()
     
     A_h   = zeros(nx, ny - 1)
     A_v   = zeros(nx - 1, ny)
+    cdiff_y = zeros(nx - 1, ny)
+    cdiff_x = zeros(nx, ny - 1)
     a_h   = zeros(nx, ny - 1)
     a_v   = zeros(nx - 1, ny)
     σnn = zeros(nx, ny)
@@ -80,7 +83,9 @@ function grounding_lines_1d()
     tcur = 0.0
     for it in 1:nt
         # (overburden) hydraulic potential = overburden pressure + elevation potential + water pressure
-        @. φ[2:end-1, 2:end-1]  = σnn + ρʷg * (B + h)
+        # with ghost cells
+        # @. φ[2:end-1, 2:end-1]  = σnn + ρʷg * (B + h)
+        @. φ  = σnn + ρʷg * (B + h)
         @. ∇φ_h = (φ[2:end, :] - φ[1:end-1, :]) / dx
         @. ∇φ_v = (φ[:, 2:end] - φ[:, 1:end-1]) / dy
         # regularizor more complex
@@ -88,12 +93,21 @@ function grounding_lines_1d()
 
 
         # without ghost cells # incomplete
-        # @. A_v = (((φ[2:end, :] - φ[1:end-1, :])/dx)^2 + (I)^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, :] - φ[1:end-1, :]) / dx
-        # @. A_h = ((II)^2 + ((φ[:, 2:end] - φ[:, 1:end-1])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[:, 2:end] - φ[:, 1:end-1]) / dy
+        @. cdiff_y[:, 2:end-1] = ((φ[2:end, 3:end] - φ[2:end, 1:end-2])/dy + (φ[1:end-1, 3:end] - φ[1:end-1, 1:end-2])/dy)/4
+        @. cdiff_x[2:end-1, :] = ((φ[3:end, 2:end] - φ[1:end-2, 2:end])/dx + (φ[3:end, 1:end-1] - φ[1:end-2, 1:end-1])/dx)/4
+
+        # defines edges as central differnces require ghost cells (phi is set to zero)
+        @. cdiff_y[:, 1] = ((φ[2:end, 2])/dy + (φ[1:end-1, 2])/dy)/4
+        @. cdiff_y[:, end] = - ((φ[2:end, end-1])/dy + ( φ[1:end-1, end-1])/dy)/4
+        @. cdiff_x[1, :] = ((φ[2, 2:end])/dx + (φ[2, 1:end-1])/dx)/4
+        @. cdiff_x[end, :] = - ((φ[end-1, 2:end])/dx + (φ[end-1, 1:end-1])/dx)/4
+
+        @. A_v = (((φ[2:end, :] - φ[1:end-1, :])/dx)^2 + cdiff_y^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, :] - φ[1:end-1, :]) / dx
+        @. A_h = (cdiff_x^2 + ((φ[:, 2:end] - φ[:, 1:end-1])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[:, 2:end] - φ[:, 1:end-1]) / dy
 
         # with ghost cells
-        @. A_v = (((φ[3:end-1, 2:end] - φ[2:end-2, 2:end])/dx)^2 + (I)^2 + epsi^2)^(betha/2 - 1) * (φ[3:end-1, 2:end] - φ[2:end-2, 2:end]) / dx
-        @. A_h = ((II)^2 + ((φ[2:end, 3:end-1] - φ[2:end, 2:end-2])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, 3:end-1] - φ[:, 2:end-2]) / dy
+        # @. A_v = (((φ[3:end-1, 2:end] - φ[2:end-2, 2:end])/dx)^2 + (I)^2 + epsi^2)^(betha/2 - 1) * (φ[3:end-1, 2:end] - φ[2:end-2, 2:end]) / dx
+        # @. A_h = ((II)^2 + ((φ[2:end, 3:end-1] - φ[2:end, 2:end-2])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, 3:end-1] - φ[:, 2:end-2]) / dy
 
         # f is monotone function -> max of derivative of f is derivative of f at max (h) on intervall
         @. a_v = alpha * max(h[1:end-1, :], h[2:end, :])^(alpha - 1)
@@ -117,7 +131,7 @@ function grounding_lines_1d()
         # update water sheet thickness using explicit euler scheme
         # y' approx. by (q[2:end] - q[1:end-1]) / dx forward differnces
         # @. h -= dt * (q[2:end] - q[1:end-1]) / dx
-        @. h -= dt * ((q_h[2:end, :] - q_h[1:end-1, :]) / dx + (q_v[:, 2:end] - q_v[:, 1:end-1]) / dy)
+        @. h -= dt * ((q_v[2:end, :] - q_v[1:end-1, :]) / dx + (q_h[:, 2:end] - q_h[:, 1:end-1]) / dy)
         # h[end] = 4.2e3
         h[end, :] .= 4.2e3
 

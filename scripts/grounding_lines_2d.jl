@@ -38,16 +38,16 @@ function grounding_lines_2d()
     # σnn - overburden pressure (of ice sheet)
     @. σnn = ρⁱg * H
     # figure 2D
-    # fig = Figure(; size=(600, 600))
-    # axs = (Axis(fig[1, 1]; ylabel="z [m]"),
-    #        Axis(fig[2, 1]; ylabel="φ [bar]"),
-    #        Axis(fig[3, 1]; xlabel="x [km]", ylabel="∇φ [bar/km]"))
-    # plt = (band!(axs[1], xn ./ 1e3, zeros(nx), B[:,1]; color=:brown),
-    #        band!(axs[1], xn ./ 1e3, B[:,1], B[:,1] .+ h[:,1]; color=:blue),
-    #        band!(axs[1], xn ./ 1e3, B[:,1] .+ h[:,1], B[:,1] .+ h[:,1] .+ H[:,1]; color=:lightblue),
-    #        lines!(axs[2], xn ./ 1e3, φ[:,1] ./ 1e5),
-    #        lines!(axs[3], xn[1:end-1] ./ 1e3, ∇φ_h[:,1] ./ 1e2))
-    # display(fig)
+    fig = Figure(; size=(600, 600))
+    axs = (Axis(fig[1, 1]; ylabel="z [m]"),
+           Axis(fig[2, 1]; ylabel="φ [bar]"),
+           Axis(fig[3, 1]; xlabel="x [km]", ylabel="∇φ [bar/km]"))
+    plt = (band!(axs[1], xn ./ 1e3, zeros(nx), B[:,1]; color=:brown),
+           band!(axs[1], xn ./ 1e3, B[:,1], B[:,1] .+ h[:,1]; color=:blue),
+           band!(axs[1], xn ./ 1e3, B[:,1] .+ h[:,1], B[:,1] .+ h[:,1] .+ H[:,1]; color=:lightblue),
+           lines!(axs[2], xn ./ 1e3, φ[:,1] ./ 1e5),
+           lines!(axs[3], xn[1:end-1] ./ 1e3, ∇φ_h[:,1] ./ 1e2))
+    display(fig)
 
     # fig = Figure(size = (800, 600))
     # ax = Axis3(fig[1, 1],
@@ -87,28 +87,28 @@ function grounding_lines_2d()
     # surface!(ax, X, Y, Z3, color=:cyan, transparency=true, alpha=0.8)
 
     # figure 3D
-    fig = Figure(size = (800, 600))
+    # fig = Figure(size = (800, 600))
 
-    ax = Axis3(fig[1, 1],
-        xlabel = "x [km]",
-        ylabel = "y [km]",
-        zlabel = "z [m]"
-    )
+    # ax = Axis3(fig[1, 1],
+    #     xlabel = "x [km]",
+    #     ylabel = "y [km]",
+    #     zlabel = "z [m]"
+    # )
 
-    X = xn ./ 1e3
-    Y = yn ./ 1e3
+    # X = xn ./ 1e3
+    # Y = yn ./ 1e3
 
-    p1 = surface!(ax, X, Y, B,
-        color=:brown, transparency=true, alpha=0.8)
+    # p1 = surface!(ax, X, Y, B,
+    #     color=:brown, transparency=true, alpha=0.8)
 
-    p2 = surface!(ax, X, Y, B .+ h,
-        color=:blue, transparency=true, alpha=0.8)
+    # p2 = surface!(ax, X, Y, B .+ h,
+    #     color=:blue, transparency=true, alpha=0.8)
 
-    p3 = surface!(ax, X, Y, B .+ h .+ H,
-        color=:lightblue, transparency=true, alpha=0.8)
+    # p3 = surface!(ax, X, Y, B .+ h .+ H,
+    #     color=:lightblue, transparency=true, alpha=0.8)
 
 
-    display(fig)
+    # display(fig)
 
     # time loop
     tcur = 0.0
@@ -161,28 +161,17 @@ function grounding_lines_2d()
         @. h -= dt * ((q_h[2:end, :] - q_h[1:end-1, :]) / dx + (q_v[:, 2:end] - q_v[:, 1:end-1]) / dy)
         h[end, :] .= 4.2e3
         # update plot
-        if it % nvis == 0
-            @printf(" t = %.1f d, dt [adv] = %1.3e d, dt [dif] = %1.3e d\n", tcur / 3600 / 24, dta / 3600 / 24, dtd / 3600 / 24)
-
-            p1[3] = B
-            p2[3] = B .+ h
-            p3[3] = B .+ h .+ H
-
-            display(fig)
-        end
-        tcur += dt
-
         # if it % nvis == 0
         #     @printf(" t = %.1f d, dt [adv] = %1.3e d, dt [dif] = %1.3e d\n", tcur / 3600 / 24, dta / 3600 / 24, dtd / 3600 / 24)
 
-        #     plt[2][3] = B[:,1] .+ h[:,1]
-        #     plt[3][2] = B[:,1] .+ h[:,1]
-        #     plt[3][3] = B[:,1] .+ h[:,1] .+ H[:,1]
-        #     plt[4][2] = φ[:,1] ./ 1e5
-        #     plt[5][2] = ∇φ_h[:,1] ./ 1e2
+        #     p1[3] = B
+        #     p2[3] = B .+ h
+        #     p3[3] = B .+ h .+ H
+
         #     display(fig)
         # end
         # tcur += dt
+
     end
     return
 end

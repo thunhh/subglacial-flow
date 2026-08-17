@@ -48,7 +48,9 @@ function grounding_lines_1d()
         @. φ  = σnn + ρʷg * (B + h)
         @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
         # Darcy(-Weisbach) water flux
+        # @. q[2:end-1] = -k * 0.5 * (h[1:end-1] + h[2:end]) * ∇φ - k * 0.5 * abs(∇φ) * (h[2:end] - h[1:end-1])
         @. q[2:end-1] = -k * 0.5 * (h[1:end-1] + h[2:end]) * ∇φ - k * 0.5 * abs(∇φ) * (h[2:end] - h[1:end-1])
+
         # advective time step
         dta = dx / k / maximum(abs, ∇φ) / 2.1
         # diffusive time step

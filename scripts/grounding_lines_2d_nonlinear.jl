@@ -92,9 +92,13 @@ function grounding_lines_1d()
         #@. epsi = 1e-5 * mean(abs.((φ[2:end] - φ[1:end-1]) ./ (dx)))
 
 
-        # without ghost cells # incomplete
-        @. cdiff_y[:, 2:end-1] = ((φ[2:end, 3:end] - φ[2:end, 1:end-2])/dy + (φ[1:end-1, 3:end] - φ[1:end-1, 1:end-2])/dy)/4
-        @. cdiff_x[2:end-1, :] = ((φ[3:end, 2:end] - φ[1:end-2, 2:end])/dx + (φ[3:end, 1:end-1] - φ[1:end-2, 1:end-1])/dx)/4
+        # central differences
+        # @. cdiff_y[:, 2:end-1] = ((φ[2:end, 3:end] - φ[2:end, 1:end-2])/dy + (φ[1:end-1, 3:end] - φ[1:end-1, 1:end-2])/dy)/4
+        # @. cdiff_x[2:end-1, :] = ((φ[3:end, 2:end] - φ[1:end-2, 2:end])/dx + (φ[3:end, 1:end-1] - φ[1:end-2, 1:end-1])/dx)/4
+
+        # with gradients at both interfaces, more accurate for non-uniform grids
+        @. cdiff_y[:, 2:end-1] = ((φ[2:end, 2:end-1] - φ[2:end, 1:end-2])/dy + (φ[2:end, 3:end] - φ[2:end, 2:end-1])/dy + (φ[1:end-1, 3:end] - φ[1:end-1, 2:end-1])/dy + (φ[1:end-1, 2:end-1] - φ[1:end-1, 1:end-2])/dy)/4
+        @. cdiff_x[2:end-1, :] = ((φ[3:end, 2:end] - φ[2:end-1, 2:end])/dx + (φ[2:end-1, 2:end] - φ[1:end-2, 2:end])/dx + (φ[3:end, 1:end-1] - φ[2:end-1, 1:end-1])/dx + (φ[2:end-1, 1:end-1] - φ[1:end-2, 1:end-1])/dx)/4
 
         # defines edges as central differnces require ghost cells (phi is set to zero)
         @. cdiff_y[:, 1] = ((φ[2:end, 2])/dy + (φ[1:end-1, 2])/dy)/4

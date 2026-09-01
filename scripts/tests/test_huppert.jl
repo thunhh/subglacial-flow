@@ -3,8 +3,11 @@ using Printf
 using Statistics
 using Serialization
 
+# goal: check if solution has entered self similar state
+
 function grounding_lines_1d()
     # physics
+    i = 1
     lx  = 30
     ly  = 30
     k   = 0.001
@@ -14,19 +17,23 @@ function grounding_lines_1d()
     betha = 2
     g = 9.81
     v = 1e-6
-    c = g/v/3
+    rho_a   = 1.204     # density air
+    rho_w   = 1000     # density water
+    g_      = (rho_w - rho_a) / g
+    c = g_/v/3
     # numerics
     nx   = 301 #100
     ny   = 301 #100
-    nt   = 400000 #300000 #10000 #100000
-    nvis = 30000 #30000 # 1000
-    T =  0.0005055718055700804
+    nt   = 60000 #300000 #10000 #100000
+    nvis = 6000 #30000 # 1000
+
+    T = 1.352750151391665e-5 #-> T different than T of similarity solution
 
     # preprocessing
     dx = lx / (nx - 1)
     dy = ly / (ny - 1)
-    xn = LinRange(0, lx, nx)
-    yn = LinRange(0, ly, ny)
+    xn = LinRange(-lx/2, lx/2, nx)
+    yn = LinRange(-ly/2, ly/2, ny)
     # arrays
     H   = zeros(nx, ny)
     B   = zeros(nx, ny)
@@ -61,9 +68,9 @@ function grounding_lines_1d()
     dist = sqrt.((idx_x .- mid_x).^2 .+ (idx_y' .- mid_y).^2)
     mask = dist .< 50
 
-    h = 0.12 .* mask #2000.0 .* mask
+    h = 2.0 .* mask 
 
-
+ 
     # other potential initial condition -> droplet form
     # R0 = 10.0
     # H0 = 2000.0
@@ -106,6 +113,7 @@ function grounding_lines_1d()
            band!(axs[1], xn ./ 1e3, B[:,mid_y] .+ h[:,mid_y], B[:,mid_y] .+ h[:,mid_y] .+ H[:,mid_y]; color=:lightblue),
            lines!(axs[2], xn ./ 1e3, φ[:,mid_y] ./ 1e5),
            lines!(axs[3], xn[1:end-1] ./ 1e3, ∇φ_h[:,mid_y] ./ 1e2))
+    header = Label(fig[0, :], "Plot 0", fontsize = 24, tellwidth = false, tellheight = false)
     display(fig)
 
     # time loop
@@ -203,22 +211,32 @@ function grounding_lines_1d()
 
             # figure 2D
         if it % nvis == 0
-            @printf(" t = %.5f , dt [adv] = %1.3e , dt [dif] = %1.3e \n", tcur, dta , dtd)
-            println(maximum(h))
-            println(minimum(h))
+            @printf(" t = %1.3e , dt [adv] = %1.3e , dt [dif] = %1.3e \n", tcur, dta , dtd)
+            println("max h = " ,maximum(h))
+
+            # calculate location of front
+            noise = 1e-8
+            h_quer = h[:, mid_y]
+            idx_f = findfirst(>(noise), h_quer)
+            x_front = xn[idx_f]
+            println("location of front = ", x_front)
+
+            serialize("h_huppert_2D_$i.jls", h)
 
             plt[2][3] = B[:,mid_y] .+ h[:,mid_y]
             plt[3][2] = B[:,mid_y] .+ h[:,mid_y]
             plt[3][3] = B[:,mid_y] .+ h[:,mid_y] .+ H[:,mid_y]
             plt[4][2] = φ[:,mid_y] ./ 1e5
             plt[5][2] = ∇φ_h[:,mid_y] ./ 1e2
+            header.text = "Plot $i"
             display(fig)
+            i += 1
         end
         tcur += dt
 
         if tcur >= T
-            serialize("h_huppert_2D.jls", h)
-            # read fie via v = deserialize("vector.jls")
+            # serialize("h_huppert_2D.jls", h)
+            # read fie via h = deserialize("h_huppert_2D.jls")
             plt[2][3] = B[:,mid_y] .+ h[:,mid_y]
             plt[3][2] = B[:,mid_y] .+ h[:,mid_y]
             plt[3][3] = B[:,mid_y] .+ h[:,mid_y] .+ H[:,mid_y]

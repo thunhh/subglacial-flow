@@ -8,12 +8,12 @@ function huppert_analytic()
     # physics
     lx      = 10 #100e3
     rho_a   = 1.204     # density air
-    rho_w   = 10000     # density water
+    rho_w   = 1000     # density water
     g       = 9.81
     g_      = (rho_w - rho_a) / g
     v       = 1.004e-6  # viscosity for 20° C water
     eta_n   = (1/5 * (3/10)^(1/3) * pi^(1/2) * gamma(1/3) * gamma(5/6))^(-3/5)
-    q       = 0.6        # water volume
+    q       = 0.6 #1.2 * pi * 5^2        # water volume
 
     # numerics
     nx  = 100
@@ -44,6 +44,7 @@ function huppert_analytic()
     println(eta_n)
     println(T)
     println(TT)
+    println("h_max = ", maximum(h))
     
     p = plot(y, phi)
     display(p)
@@ -52,6 +53,12 @@ function huppert_analytic()
     p = plot(xn, h)
     display(p)
     savefig("huppert_h.png")
+
+    # compute volume
+    I = sum(diff(xn) .* (h[2:end] .+ h[1:end-1]) ./ 2)
+    println("Initial Volume Q = ", q)
+    println("Volume of solution = ", I)
+
 
 
 end

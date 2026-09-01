@@ -25,7 +25,7 @@ function grounding_lines_1d()
     nx   = 301 #100
     ny   = 301 #100
     nt   = 60000 #300000 #10000 #100000
-    nvis = 6000 #30000 # 1000
+    nvis = 3000 #30000 # 1000
 
     T = 1.352750151391665e-5 #-> T different than T of similarity solution
 
@@ -209,16 +209,23 @@ function grounding_lines_1d()
         #     end
         #     tcur += dt
 
+        # calculate location of front
+        noise = 1e-4
+        h_quer = h[:, mid_y]
+        idx_f = findfirst(>(noise), h_quer)
+        x_front = xn[idx_f]
+
             # figure 2D
         if it % nvis == 0
+            println("plotting iteration ", i)
             @printf(" t = %1.3e , dt [adv] = %1.3e , dt [dif] = %1.3e \n", tcur, dta , dtd)
             println("max h = " ,maximum(h))
 
-            # calculate location of front
-            noise = 1e-8
-            h_quer = h[:, mid_y]
-            idx_f = findfirst(>(noise), h_quer)
-            x_front = xn[idx_f]
+            # # calculate location of front
+            # noise = 1e-8
+            # h_quer = h[:, mid_y]
+            # idx_f = findfirst(>(noise), h_quer)
+            # x_front = xn[idx_f]
             println("location of front = ", x_front)
 
             serialize("h_huppert_2D_$i.jls", h)
@@ -234,17 +241,18 @@ function grounding_lines_1d()
         end
         tcur += dt
 
-        if tcur >= T
-            # serialize("h_huppert_2D.jls", h)
-            # read fie via h = deserialize("h_huppert_2D.jls")
-            plt[2][3] = B[:,mid_y] .+ h[:,mid_y]
-            plt[3][2] = B[:,mid_y] .+ h[:,mid_y]
-            plt[3][3] = B[:,mid_y] .+ h[:,mid_y] .+ H[:,mid_y]
-            plt[4][2] = φ[:,mid_y] ./ 1e5
-            plt[5][2] = ∇φ_h[:,mid_y] ./ 1e2
-            display(fig)
-            break
-        end
+        # would only work if the timing was the same
+        # if tcur >= T
+        #     # serialize("h_huppert_2D.jls", h)
+        #     # read fie via h = deserialize("h_huppert_2D.jls")
+        #     plt[2][3] = B[:,mid_y] .+ h[:,mid_y]
+        #     plt[3][2] = B[:,mid_y] .+ h[:,mid_y]
+        #     plt[3][3] = B[:,mid_y] .+ h[:,mid_y] .+ H[:,mid_y]
+        #     plt[4][2] = φ[:,mid_y] ./ 1e5
+        #     plt[5][2] = ∇φ_h[:,mid_y] ./ 1e2
+        #     display(fig)
+        #     break
+        # end
 
     end
     return

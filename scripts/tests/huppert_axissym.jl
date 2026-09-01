@@ -1,6 +1,8 @@
 using Printf
 using SpecialFunctions
 using Plots
+using Serialization
+
 
 
 
@@ -39,6 +41,11 @@ function huppert_axissym()
     print(maximum(y))
     @. phi  = (3/16)^(1/3) * (1 - y^2)^(1/3)
     @. h    = eta_n^(2/3) * (3*q*v/g_)^(1/4) * t^(-1/4) * phi
+
+    serialize("h_huppert_selfsim.jls", h)
+
+
+
 
     println("h_max = ", maximum(h))
     

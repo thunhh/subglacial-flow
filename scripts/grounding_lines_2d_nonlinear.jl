@@ -109,11 +109,7 @@ function grounding_lines_1d()
         @. A_v = (((φ[2:end, :] - φ[1:end-1, :])/dx)^2 + cdiff_y^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, :] - φ[1:end-1, :]) / dx
         @. A_h = (cdiff_x^2 + ((φ[:, 2:end] - φ[:, 1:end-1])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[:, 2:end] - φ[:, 1:end-1]) / dy
 
-        # with ghost cells
-        # @. A_v = (((φ[3:end-1, 2:end] - φ[2:end-2, 2:end])/dx)^2 + (I)^2 + epsi^2)^(betha/2 - 1) * (φ[3:end-1, 2:end] - φ[2:end-2, 2:end]) / dx
-        # @. A_h = ((II)^2 + ((φ[2:end, 3:end-1] - φ[2:end, 2:end-2])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, 3:end-1] - φ[:, 2:end-2]) / dy
-
-        # f is monotone function -> max of derivative of f is derivative of f at max (h) on intervall
+        
         @. a_v = alpha * max(h[1:end-1, :], h[2:end, :])^(alpha - 1)
         @. a_h = alpha * max(h[:, 1:end-1], h[:, 2:end])^(alpha - 1)
          

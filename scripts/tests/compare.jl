@@ -6,7 +6,7 @@ using Serialization
 nx  = 301
 lx  = 30
 x_num = LinRange(-lx/2, lx/2, nx)
-h_num = deserialize("h_huppert_2D_17.jls")
+h_num = deserialize("h_huppert_2D_49.jls")
 mid_y = nx ÷ 2
 h_quer = h_num[:, mid_y]
 

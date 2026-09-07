@@ -45,8 +45,6 @@ function huppert_axissym()
     serialize("h_huppert_selfsim.jls", h)
 
 
-
-
     println("h_max = ", maximum(h))
     
     p = plot(y, phi, xlabel="y", ylabel="ϕ")

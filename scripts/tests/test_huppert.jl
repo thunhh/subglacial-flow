@@ -25,9 +25,8 @@ function grounding_lines_1d()
     nx   = 301 #100
     ny   = 301 #100
     nt   = 60000 #300000 #10000 #100000
-    nvis = 3000 #30000 # 1000
+    nvis = 1000 #30000 # 1000
 
-    T = 1.352750151391665e-5 #-> T different than T of similarity solution
 
     # preprocessing
     dx = lx / (nx - 1)

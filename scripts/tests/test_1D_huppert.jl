@@ -14,20 +14,17 @@ function profile(x, t, Q)
     v   = 1
     g_  = 1
     # Q   = 1
-    ρʷg = 1.0 #1000.0 * 9.81
 
     Q = 1.5222758135166778
     eta_n   = (1/5 * (3/10)^(1/3) * pi^(1/2) * gamma(1/3) * gamma(5/6))^(-3/5)
     t_0 = 0.314269
     T   = t_0 + t
 
-    L = eta_n * (g_ * Q^3 * T / 3 / v)^(1/5)
-    println("front = ", L)
-    L = 1.0
-    qq = ((L/eta_n)^5 * 3 * v / g_ / T)^(1/3)
-    println("initial volume = ",qq)
-    qqq = (3 * (L/eta_n)^5 / T)^(1/3)
-    println("initial volume = ",qqq)
+    # L = eta_n * (g_ * Q^3 * T / 3 / v)^(1/5)
+    # println("front = ", L)
+    # L = 1.0
+    # qq = ((L/eta_n)^5 * 3 * v / g_ / T)^(1/3)
+    # println("initial volume = ",qq)
 
     # arrays
     nx = length(x)
@@ -43,7 +40,7 @@ function profile(x, t, Q)
     # println(minimum(eta))
     # println(minimum(abs.(eta)))
     @. y    = min(abs(eta/eta_n), 1.0)
-    println("y =", y)
+    # println("y =", y)
     # @. y    = max(y, 1.0)
 
     # println(minimum(y))
@@ -60,6 +57,13 @@ end
     lx = 10.0 # domain length (diameter for axisymmetric)
     Q_0 = 2.0  # initial volume
     t_e = 10.0 # total time of the simulation
+    ρʷg = 1.0 #1000.0 * 9.81
+    alpha = 3
+    c = 1
+    v = 1
+    g_ = 1
+    g = 1
+
     # numerics
     nvis = 500
     # preprocessing
@@ -158,7 +162,7 @@ end
 
         if it % nvis == 0
             # exact profile (similarity solution)
-            @. hᵉ = profile(xc, t_n, Q_0)
+            hᵉ = profile(xc, t_n, Q_0)
 
             # update plot
             plt[2][2] = h[:, 100]

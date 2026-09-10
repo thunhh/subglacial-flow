@@ -48,9 +48,10 @@ function grounding_lines_1d()
     σnn = zeros(nx, ny)
     # initialisation
     # H - ice thickness
-    # H .= 4000.0 .- reshape(xn, :, 1) ./ 1e2
-    yfactor = 0.2 * sin.(range(0, π, length=ny))
-    H .= (4000.0 .- reshape(xn, :, 1) ./ 1e2) .* reshape(yfactor, 1, :)
+    H .= 4000.0 .- reshape(xn, :, 1) ./ 1e2
+    # complex initial condition
+    # yfactor = 0.2 * sin.(range(0, π, length=ny))
+    # H .= (4000.0 .- reshape(xn, :, 1) ./ 1e2) .* reshape(yfactor, 1, :)
     H[xn .> 9lx/10, :] .= 0
     # B - bed elevation
     @. B = 1.4e3 + 0.2e3 * sin(6π * xn / lx) - xn / 1e2

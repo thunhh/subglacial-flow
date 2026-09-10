@@ -17,7 +17,7 @@ function huppert_analytic()
 
     # numerics
     nx  = 100
-    t   = 0.0005055718055700804
+    t   = 0.314269
 
     # preprocessing
     dx  = lx / (nx - 1)

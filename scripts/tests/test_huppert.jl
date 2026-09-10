@@ -173,16 +173,26 @@ function grounding_lines_1d()
         # dt = min(dta, dtd) 
 
         # time stepping    
-        hmax = maximum(h)
+        # hmax = maximum(h)
 
-        gradmax = max(
-            maximum(abs, ∇φ_h),
-            maximum(abs, ∇φ_v)
-        )
+        # gradmax = max(
+        #     maximum(abs, ∇φ_h),
+        #     maximum(abs, ∇φ_v)
+        # )
 
-        dta = min(dx, dy) / (c * hmax^alpha * max(gradmax, 1e-12)) / 10
-        dtd = min(dx^2, dy^2) / (c * ρʷg * hmax^alpha) / 10
-        dt = min(dta, dtd)
+        # dta = min(dx, dy) / (c * hmax^alpha * max(gradmax, 1e-12)) / 10
+        # dtd = min(dx^2, dy^2) / (c * ρʷg * hmax^alpha) / 10
+        # dt = min(dta, dtd)
+
+        # hmax = maximum(h)
+
+        # dtd = 3 * v * dx^2 * dy^2 / (2 * g * hmax^alpha * (dx^2 + dy^2)) / 10
+
+        # dt = dtd
+
+        dt = dx^2 / 4.1 / 10000
+        println(dt)
+
 
 
         # update water sheet thickness using explicit euler scheme
@@ -212,6 +222,7 @@ function grounding_lines_1d()
         noise = 1e-4
         h_quer = h[:, mid_y]
         idx_f = findfirst(>(noise), h_quer)
+        println(idx_f)
         x_front = xn[idx_f]
 
             # figure 2D

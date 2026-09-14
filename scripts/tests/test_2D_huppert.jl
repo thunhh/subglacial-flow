@@ -1,7 +1,17 @@
 using CairoMakie
 using SpecialFunctions
 
+ETA_N = (1/5 * (3/10)^(1/3) * pi^(1/2) * gamma(1/3) * gamma(5/6))^(-3/5)
+V   = 1
+G_  = 1
+T_0 = 0.314269
+Q_0 = 1.5222758135166778
 
+
+function front(t, q)
+    T = t + T_0
+    return ETA_N * (G_ * Q_0^3 * T / 3 / V)^(1/5) 
+end
 # flow profile
 function profile(x, t, Q)
     # rho_a   = 1.204     # density air
@@ -11,19 +21,17 @@ function profile(x, t, Q)
     # v       = 1.004e-6  # viscosity for 20° C water
     # # Q       = 0.6 #1.2 * pi * 5^2        # water volume
   
-    v   = 1
-    g_  = 1
+    v   = V
+    g_  = G_
     # Q   = 1
 
     Q = 1.5222758135166778
-    eta_n   = (1/5 * (3/10)^(1/3) * pi^(1/2) * gamma(1/3) * gamma(5/6))^(-3/5)
-    t_0 = 0.314269
-    T   = t_0 + t
+    T   = T_0 + t
 
-    # L = eta_n * (g_ * Q^3 * T / 3 / v)^(1/5)
+    # L = ETA_N * (g_ * Q^3 * T / 3 / v)^(1/5)
     # println("front = ", L)
     # L = 1.0
-    # qq = ((L/eta_n)^5 * 3 * v / g_ / T)^(1/3)
+    # qq = ((L/ETA_N)^5 * 3 * v / g_ / T)^(1/3)
     # println("initial volume = ",qq)
 
     # arrays
@@ -35,18 +43,18 @@ function profile(x, t, Q)
 
     # similarity solution
     @. eta  = (1/3 * g_ * Q^3 / v)^(-1/5) * x * T^(-1/5)
-    # println(eta_n)
+    # println(ETA_N)
     # println(maximum(eta))
     # println(minimum(eta))
     # println(minimum(abs.(eta)))
-    @. y    = min(abs(eta/eta_n), 1.0)
+    @. y    = min(abs(eta/ETA_N), 1.0)
     # println("y =", y)
     # @. y    = max(y, 1.0)
 
     # println(minimum(y))
     # println(maximum(y))
     @. phi  = (3/10)^(1/3) * (1 - y^2)^(1/3)
-    @. h    = eta_n^(2/3) * (3*Q^2*v/g_)^(1/5) * T^(-1/5) * phi
+    @. h    = ETA_N^(2/3) * (3*Q^2*v/g_)^(1/5) * T^(-1/5) * phi
 
     return h
 end
@@ -55,19 +63,18 @@ end
 @views function main()
     # physics
     lx = 10.0 # domain length (diameter for axisymmetric)
-    Q_0 = 2.0  # initial volume
     t_e = 10.0 # total time of the simulation
     ρʷg = 1.0 #1000.0 * 9.81
     alpha = 3
-    c = 1
+    c = 1/3
     v = 1
     g_ = 1
     g = 1
 
     # numerics
-    nvis = 500
+    nvis = 2000 #500
     # preprocessing
-    nx = 200
+    nx = 500 #200
     ny = nx
     ly = lx
     dx = lx / nx
@@ -101,12 +108,11 @@ end
     # initial conditions
     hᵉ = profile(xc, 0.0, Q_0)
     h = repeat(hᵉ, 1, ny)
+    H_0 = maximum(hᵉ)
 
-    # for now bullshit, put front later
-    tt = LinRange(0, t_e, nvis)
-
-    Rs  = zeros(nvis)
-    Rsᵉ = zeros(nvis)
+    # initial front position
+    Rsᵉ = Point2f[(0.0, front(0.0, Q_0))] 
+    Rs = copy(Rsᵉ)   
 
     # visualisation
     fig = Figure()
@@ -115,8 +121,8 @@ end
     plt = (lines!(axs[1], xc, h[:, 100]; color=:blue, label="initial"),
            lines!(axs[1], xc, h[:, 100]; color=:red, label="numerical"),
            lines!(axs[1], xc, hᵉ; color=:black, linestyle=:dash, label="exact"),
-            lines!(axs[2], tt, Rs; color=:red, label="numerical"),
-            lines!(axs[2], tt, Rsᵉ; color=:black, linestyle=:dash, label="exact"))
+            lines!(axs[2], Rs; color=:red, label="numerical"),
+            lines!(axs[2], Rsᵉ; color=:black, linestyle=:dash, label="exact"))
     axislegend(axs[1])
     axislegend(axs[2]; position=:rb)
     display(fig)
@@ -126,18 +132,18 @@ end
     it = 0 # time iteration
     while t_n < t_e
         # @. φ  = ρʷg * h + epsi
-        @. ∇φ_h = (h[2:end, :] - h[1:end-1, :]) / dx
-        @. ∇φ_v = (h[:, 2:end] - h[:, 1:end-1]) / dy
+        # @. ∇φ_h = (h[2:end, :] - h[1:end-1, :]) / dx
+        # @. ∇φ_v = (h[:, 2:end] - h[:, 1:end-1]) / dy
 
-        # central differences
-        @. cdiff_y[:, 2:end-1] = ((h[2:end, 3:end] - h[2:end, 1:end-2])/dy + (h[1:end-1, 3:end] - h[1:end-1, 1:end-2])/dy)/4
-        @. cdiff_x[2:end-1, :] = ((h[3:end, 2:end] - h[1:end-2, 2:end])/dx + (h[3:end, 1:end-1] - h[1:end-2, 1:end-1])/dx)/4
+        # # central differences
+        # @. cdiff_y[:, 2:end-1] = ((h[2:end, 3:end] - h[2:end, 1:end-2])/dy + (h[1:end-1, 3:end] - h[1:end-1, 1:end-2])/dy)/4
+        # @. cdiff_x[2:end-1, :] = ((h[3:end, 2:end] - h[1:end-2, 2:end])/dx + (h[3:end, 1:end-1] - h[1:end-2, 1:end-1])/dx)/4
 
-        # defines edges as central differnces require ghost cells (phi is set to zero)
-        @. cdiff_y[:, 1] = ((h[2:end, 2])/dy + (h[1:end-1, 2])/dy)/4
-        @. cdiff_y[:, end] = - ((h[2:end, end-1])/dy + ( h[1:end-1, end-1])/dy)/4
-        @. cdiff_x[1, :] = ((h[2, 2:end])/dx + (h[2, 1:end-1])/dx)/4
-        @. cdiff_x[end, :] = - ((h[end-1, 2:end])/dx + (h[end-1, 1:end-1])/dx)/4
+        # # defines edges as central differnces require ghost cells (phi is set to zero)
+        # @. cdiff_y[:, 1] = ((h[2:end, 2])/dy + (h[1:end-1, 2])/dy)/4
+        # @. cdiff_y[:, end] = - ((h[2:end, end-1])/dy + ( h[1:end-1, end-1])/dy)/4
+        # @. cdiff_x[1, :] = ((h[2, 2:end])/dx + (h[2, 1:end-1])/dx)/4
+        # @. cdiff_x[end, :] = - ((h[end-1, 2:end])/dx + (h[end-1, 1:end-1])/dx)/4
 
         @. A_v = (h[2:end, :] - h[1:end-1, :]) / dx
         @. A_h = (h[:, 2:end] - h[:, 1:end-1]) / dy
@@ -152,7 +158,8 @@ end
 
         # diffusive time step
         hmax = maximum(h)
-        dt = 3 * v * dx^2 * dy^2 / (2 * g * hmax^alpha * (dx^2 + dy^2)) / 10
+        # dt = 3 * v * dx^2 * dy^2 / (2 * g * hmax^alpha * (dx^2 + dy^2)) / 10
+        dt = 1e-5
 
         # update water sheet thickness using explicit euler scheme
         @. h -= dt * ((q_v[2:end, :] - q_v[1:end-1, :]) / dx + (q_h[:, 2:end] - q_h[:, 1:end-1]) / dy)
@@ -163,6 +170,21 @@ end
         if it % nvis == 0
             # exact profile (similarity solution)
             hᵉ = profile(xc, t_n, Q_0)
+
+            # estimate front
+            Rᵉ = front(t_n, Q_0)
+            push!(Rsᵉ, Point2f(t_n, Rᵉ))
+            
+            for ifr in (nx-1):-1:1
+                ϵ = 1e-3H_0
+                if h[ifr] > ϵ && h[ifr+1] <= ϵ
+                    R = xc[ifr]
+                    push!(Rs, Point2f(t_n, R))
+                end
+            end
+            
+
+
 
             # update plot
             plt[2][2] = h[:, 100]

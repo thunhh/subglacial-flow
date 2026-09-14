@@ -33,7 +33,7 @@ function huppert_axissym()
     phi = zeros(nx)
     h   = zeros(nx)
 
-    # similarity solution
+    # similarity solution 
     @. eta  = (1/3 * g_ * q^3 / v)^(-1/8) * xn * t^(-1/8)
     println(maximum(eta))
     @. y    = eta/eta_n

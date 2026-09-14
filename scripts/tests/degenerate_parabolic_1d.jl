@@ -56,7 +56,7 @@ end
     α  = 3 #5/4  # 5/4 for Darcy-Weisbach, 3 for Newtonian viscous flow, 5 for ice flow
     β  = 2 #3/2  # 3/2 for Darcy-Weisbach, 2 Newtonian viscous flow, 4 for ice flow
     d  = 2 #1   # 1 for cross-section, 2 for axisymmetric
-    tₑ = 1.0 #10.0 # total time of the simulation
+    tₑ = 10.0 #10.0 # total time of the simulation
     # numerics
     nvis = 500
     # preprocessing

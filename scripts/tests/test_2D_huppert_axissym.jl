@@ -8,7 +8,7 @@ RHO_A   = 1.204     # density air
 RHO_W   = 1000     # density water
 G       = 9.81
 G_      = (RHO_W - RHO_A) / G
-Q_0       = 2*pi #pi/2 #1.0301548313168503
+Q_0       = pi #pi/2 #1.0301548313168503
 
 function front(t, q)
     t_0 = 1e-8
@@ -39,11 +39,23 @@ function profile(x, t)
     eta = (1/3 * g_ * Q^3 / v)^(-1/8) .* x .* T^(-1/8)
     y = min.(abs.(eta ./ ETA_N), 1.0)
     phi = (3/16)^(1/3) * (1 .- y.^2).^(1/3)
-    h = ETA_N^(3) * (3 * Q^2 * v / g_)^(1/4) * T^(-1/4) .* phi
-
-    # h = ETA_N^(2/3) before!
-
+    h = ETA_N^(2/3) * (3 * Q^2 * v / g_)^(1/4) * T^(-1/4) .* phi
     return h
+end
+
+function profile_deg(x, t, α, β, H₀, R₀, d)
+    # notation
+    γ = α + β - 2
+    l = β / (β - 1)
+    a = (β - 1) / γ
+    k = d * γ + β
+    # initial time
+    t₀ = R₀ ^ β / (k * (β/γ) ^ (β-1) * H₀^γ)
+    # self-similar variables
+    T = 1 + t / t₀
+    H = H₀ * T^(-d/k)
+    R = R₀ * T^inv(k)
+    return H * max(1 - (abs(x) / R)^l, 0)^a
 end
 
 # main function
@@ -51,6 +63,13 @@ end
     # physics
     lx = 10.0 # domain length (diameter for axisymmetric)
     t_e = 10.0 # total time of the simulation
+
+    # for deg profile
+    H_0 = 1.0  # initial thickness
+    R_0 = 1.0  # initial radius
+    alpha  = 3 #5/4  # 5/4 for Darcy-Weisbach, 3 for Newtonian viscous flow, 5 for ice flow
+    betha  = 2 #3/2  # 3/2 for Darcy-Weisbach, 2 Newtonian viscous flow, 4 for ice flow
+    d  = 2 #1   # 1 for cross-section, 2 for axisymmetric
 
     # water/air variables
     ρⁱg = 910.0 * 9.81
@@ -68,7 +87,7 @@ end
     # numerics
     nvis = 2000
     # preprocessing
-    nx = 500 #200
+    nx = 200
     ny = nx
     ly = lx
     dx = lx / nx
@@ -102,8 +121,14 @@ end
     r = sqrt.(xc.^2 .+ yc'.^2)
     re = abs.(xc)
     hᵉ = profile(re, 0.0)
-    h = profile(r, 0.0)
     H_0 = maximum(hᵉ)
+    R_0 = front(0.0, Q_0)
+
+    # h = profile(r, 0.0)
+    h_deg = zeros(nx)
+    h = zeros(nx, ny)
+    @. h_deg = profile_deg(re, 0.0, alpha, betha, H_0, R_0, d)
+    @. h = profile_deg(r, 0.0, alpha, betha, H_0, R_0, d)
 
     # initial front position
     Rsᵉ = Point2f[(0.0, front(0.0, Q_0))] 
@@ -121,6 +146,7 @@ end
     plt = (lines!(axs[1], xc, h[:, j]; color=:blue, label="initial"),
            lines!(axs[1], xc, h[:, j]; color=:red, label="numerical"),
            lines!(axs[1], xc, hᵉ; color=:black, linestyle=:dash, label="exact"),
+           lines!(axs[1], xc, h_deg; color=:green, label="deg sol"),
             lines!(axs[2], Rs; color=:red, label="numerical"),
             lines!(axs[2], Rsᵉ; color=:black, linestyle=:dash, label="exact from formula"),
             lines!(axs[2], Rsee; color=:black, label="exact from vector"))
@@ -182,6 +208,7 @@ end
         if it % nvis == 0
             # exact profile (similarity solution)
             hᵉ = profile(xc, t_n)
+            @. h_deg = profile_deg(re, t_n, alpha, betha, H_0, R_0, d)
 
             # estimate front
             Rᵉ = front(t_n, Q_0)
@@ -203,8 +230,9 @@ end
             axs[1].title = "Flow profile —  t = $(@sprintf("%.3e", t_n))"
             plt[2][2] = h[:, j]
             plt[3][2] = hᵉ
-            plt[4][1] = Rs
-            plt[5][1] = Rsᵉ
+            plt[4][2] = h_deg
+            plt[5][1] = Rs
+            plt[6][1] = Rsᵉ
             display(fig)
         end
     end

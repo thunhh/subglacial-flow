@@ -16,7 +16,7 @@ function compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
 end
 
 function check_res!(Resh, h, h_old, q, dt, dx)
-    Resh = - (h - h_old) / dt - (q[2:end] - q[1:end-1]) / dx  
+    @. Resh = - (h - h_old) / dt - (q[2:end] - q[1:end-1]) / dx  
     return
 end  
 
@@ -29,6 +29,7 @@ function pseudo_1D_lin()
     # numerics
     nx   = 100
     nvis = 20000 # 1000
+    nvistot = 100
     tol  = 1e-8
     maxiter = 1e5
     t_end = 1e5 #1e6 #1.0     # total simulation time
@@ -101,19 +102,22 @@ function pseudo_1D_lin()
             compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
             h[end] = 4.2e3
             iter += 1
+
             if iter % nvis == 0
                 check_res!(Resh, h, h_old, q, dt, dx)
                 err = norm(Resh) / sqrt(length(Resh)) # still need to understand this criteria
-                 plt[2][3] = B .+ h
-                plt[3][2] = B .+ h
-                plt[3][3] = B .+ h .+ H
-                plt[4][2] = φ ./ 1e5
-                plt[5][2] = ∇φ ./ 1e2
-                display(fig)
             end
         end
 
-       
+        if it % nvistot == 0
+            println("t = ", t, ", physical step = ", it, ", pseudo iterations = ", iter)
+            plt[2][3] = B .+ h
+            plt[3][2] = B .+ h
+            plt[3][3] = B .+ h .+ H
+            plt[4][2] = φ ./ 1e5
+            plt[5][2] = ∇φ ./ 1e2
+            display(fig)
+        end
         ittot += iter
         it += 1
         t += dt

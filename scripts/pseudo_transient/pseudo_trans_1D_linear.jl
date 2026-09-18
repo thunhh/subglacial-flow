@@ -30,12 +30,12 @@ function pseudo_1D_lin()
     ρʷg = 1000.0 * 9.81
     # numerics
     nx   = 100
-    nvis = 20000 # 1000
+    nvis = 100 # 1000
     nvistot = 100
-    tol  = 1e-8
+    tol  = 1e-3 #1e-8
     maxiter = 1e5
     t_end = 1e5 #1e6 #1.0     # total simulation time
-    dt = 11 #20 #12 for the 1D script
+    dt = 40 #20 #11.5 for the 1D script
     nt = Int(ceil(t_end/dt))
     epsi = 1e-2
 
@@ -54,6 +54,7 @@ function pseudo_1D_lin()
     q   = zeros(nx + 1)
     σnn = zeros(nx)
     Resh = zeros(nx)
+    println("length", length(Resh))
     D = zeros(nx)
     Re = zeros(nx)
     dτ_ρ = zeros(nx)
@@ -119,16 +120,19 @@ function pseudo_1D_lin()
             h[end] = 4.2e3
             iter += 1
 
-            if iter % nvis == 0
-                check_res!(Resh, h, h_old, q, dt, dx)
-                err = norm(Resh) / sqrt(length(Resh)) # still need to understand this criteria
-            end
+            # if iter % nvis == 0
+            check_res!(Resh, h, h_old, q, dt, dx)
+            err = norm(Resh) / sqrt(length(Resh)) # still need to understand this criteria
+            # err = norm(Resh) / norm(h)
+            # err = norm(Resh[2:end-1]) / norm(h[2:end-1])
+            # end
         end
 
         if it % nvistot == 0
             println("t = ", t, ", physical step = ", it, ", pseudo iterations = ", iter)
             # println("dτ_ρ = ", dτ_ρ)
-            println(dτ)
+            println("dτ = ",dτ)
+            println("error at final pseudo transient step = ", err)
 
             plt[2][3] = B .+ h
             plt[3][2] = B .+ h

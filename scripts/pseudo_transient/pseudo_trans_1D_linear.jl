@@ -35,7 +35,7 @@ function pseudo_1D_lin()
     tol  = 1e-8
     maxiter = 1e5
     t_end = 1e5 #1e6 #1.0     # total simulation time
-    dt = 20 #12 for the 1D script
+    dt = 11 #20 #12 for the 1D script
     nt = Int(ceil(t_end/dt))
     epsi = 1e-2
 
@@ -104,13 +104,14 @@ function pseudo_1D_lin()
         # pseudo-transient time loop
         while err > tol && iter < maxiter
             @. D = k * h
-            # println("h = ", h)
+            dτ_stab = dx^2 / 2 / max(maximum(D[2:end-1]), epsi)/ ρʷg
+            dτ = dτ_stab
+
+            # how to limit dτ?
+            # dτ = min(dτ_stab, 5)
+
             # @. Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-            # println("Re = ", Re)
             # @. dτ_ρ = lx * Vpdτ / Re / max(D, epsi)
-            dτ_stab = dx^2 / 2 / max(maximum(D[2:end-1]), epsi)/ 4
-            # how to cap dτ?
-            dτ = min(dτ_stab, 5)
             # println("dtau_rho = ", dτ_ρ)
             @. φ  = σnn + ρʷg * (B + h)
             compute_flux!(h, q, φ, ∇φ, k, dx)

@@ -2,17 +2,17 @@ using CairoMakie
 using Printf
 using LinearAlgebra
 
-function compute_flux!(h, q, φ, ∇φ, k, dx)
+function compute_flux!(h, q, φ, ∇φ, A, a, k, alpha, betha, dx)
     @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
-    @. q[2:end-1] = -k * 0.5 * (h[1:end-1] + h[2:end]) * ∇φ - k * 0.5 * abs(∇φ) * (h[2:end] - h[1:end-1])
+    @. A = (abs((φ[2:end] - φ[1:end-1]) / dx)^2 + eps())^(betha/2 - 1) * (φ[2: end] - φ[1:end-1]) / dx
+    @. a = alpha * max(h[1:end-1], h[2:end])^(alpha - 1)
+    @. q[2:end-1] = -k * 0.5 * (h[1:end-1]^alpha + h[2:end]^alpha) * A - k * a * 0.5 * abs(A) * (h[2:end] - h[1:end-1])
     return
 end
     
 function compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
-    # @. h = (h + dτ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ/dt)
-    # only update inner points
-    @. h[2:end-1] = (h[2:end-1] + dτ * (h_old[2:end-1] / dt - (q[3:end-1] - q[2:end-2]) / dx)) / (1 + dτ/dt)
-    # @. h = (h + dτ_ρ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ_ρ/dt)
+    # h = (h + dτ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ/dt)
+    @. h = (h + dτ_ρ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ_ρ/dt)
 
     return
 end
@@ -28,6 +28,8 @@ function pseudo_1D_lin()
     k   = 0.001
     ρⁱg = 910.0 * 9.81
     ρʷg = 1000.0 * 9.81
+    alpha = 5/4
+    betha = 3/2
     # numerics
     nx   = 100
     nvis = 20000 # 1000
@@ -37,11 +39,24 @@ function pseudo_1D_lin()
     t_end = 1e5 #1e6 #1.0     # total simulation time
     dt = 20 #12 for the 1D script
     nt = Int(ceil(t_end/dt))
-    epsi = 1e-2
+    D = 1
 
     # preprocessing
     dx = lx / (nx - 1)
     xn = LinRange(0, lx, nx)
+
+    # provisorisches dτ
+    CFL    = 0.99       # CFL number
+    # Derived numerics
+    dx     = lx / nx      # grid size
+    Vpdτ   = CFL * dx
+    Re     = π + sqrt(π^2 + (lx^2 / D / dt)) # Numerical Reynolds number
+    dτ_ρ  = lx / Vpdτ / Re
+    println("dτ_ρ = ", dτ_ρ)
+
+    dτ = 1
+
+    dτ_ρ = 0.01
     
 
     # arrays
@@ -52,11 +67,10 @@ function pseudo_1D_lin()
     φ   = zeros(nx)
     ∇φ  = zeros(nx - 1)
     q   = zeros(nx + 1)
+    A   = zeros(nx - 1)
+    a   = zeros(nx - 1)
     σnn = zeros(nx)
     Resh = zeros(nx)
-    D = zeros(nx)
-    Re = zeros(nx)
-    dτ_ρ = zeros(nx)
     # initialisation
     # H - ice thickness
     @. H = 4000.0 - xn / 1e2
@@ -65,20 +79,6 @@ function pseudo_1D_lin()
     @. B = 1.4e3 + 0.2e3 * sin(6π * xn / lx) - xn / 1e2
     # σnn - overburden pressure (of ice sheet)
     @. σnn = ρⁱg * H
-
-    # provisorisches dτ
-    CFL    = 0.99       # CFL number
-    # Derived numerics
-    # dx     = lx / nx      # grid size
-    D = k * maximum(h)
-    Vpdτ   = CFL * dx
-    Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-    dτ_ρ  = lx / Vpdτ / Re
-    # println("dτ_ρ = ", dτ_ρ)
-
-    dτ = 1
-    D = zeros(nx)
-    # dτ_ρ = 0.01
 
     # figure
     fig = Figure(; size=(600, 600))
@@ -103,17 +103,8 @@ function pseudo_1D_lin()
 
         # pseudo-transient time loop
         while err > tol && iter < maxiter
-            @. D = k * h
-            # println("h = ", h)
-            # @. Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-            # println("Re = ", Re)
-            # @. dτ_ρ = lx * Vpdτ / Re / max(D, epsi)
-            dτ_stab = dx^2 / 2 / max(maximum(D[2:end-1]), epsi)/ 4
-            # how to cap dτ?
-            dτ = min(dτ_stab, 5)
-            # println("dtau_rho = ", dτ_ρ)
             @. φ  = σnn + ρʷg * (B + h)
-            compute_flux!(h, q, φ, ∇φ, k, dx)
+            compute_flux!(h, q, φ, ∇φ, A, a, k, alpha, betha, dx)
             compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
             h[end] = 4.2e3
             iter += 1
@@ -126,9 +117,6 @@ function pseudo_1D_lin()
 
         if it % nvistot == 0
             println("t = ", t, ", physical step = ", it, ", pseudo iterations = ", iter)
-            # println("dτ_ρ = ", dτ_ρ)
-            println(dτ)
-
             plt[2][3] = B .+ h
             plt[3][2] = B .+ h
             plt[3][3] = B .+ h .+ H

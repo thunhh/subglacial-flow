@@ -17,8 +17,9 @@ function compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
     return
 end
 
-function check_res!(Resh, h, h_old, q, dt, dx)
+function check_res!(Resh, b, h, h_old, q, dt, dx)
     @. Resh = - (h - h_old) / dt - (q[2:end] - q[1:end-1]) / dx  
+    @. b = (q[2:end] - q[1:end-1]) / dx  
     return
 end  
 
@@ -32,7 +33,7 @@ function pseudo_1D_lin()
     nx   = 100
     nvis = 100 # 1000
     nvistot = 100
-    tol  = 1e-3 #1e-8
+    tol  = 1e-8
     maxiter = 1e5
     t_end = 1e5 #1e6 #1.0     # total simulation time
     dt = 40 #20 #11.5 for the 1D script
@@ -54,6 +55,7 @@ function pseudo_1D_lin()
     q   = zeros(nx + 1)
     σnn = zeros(nx)
     Resh = zeros(nx)
+    b = zeros(nx)
     println("length", length(Resh))
     D = zeros(nx)
     Re = zeros(nx)
@@ -101,9 +103,11 @@ function pseudo_1D_lin()
     while it < nt
         iter = 0
         err = 2 * tol
+        rel_change = 2 * tol
 
         # pseudo-transient time loop
-        while err > tol && iter < maxiter
+        while err > tol && rel_change > tol && iter < maxiter
+            h_k = copy(h)
             @. D = k * h
             dτ_stab = dx^2 / 2 / max(maximum(D[2:end-1]), epsi)/ ρʷg
             dτ = dτ_stab
@@ -121,11 +125,11 @@ function pseudo_1D_lin()
             iter += 1
 
             # if iter % nvis == 0
-            check_res!(Resh, h, h_old, q, dt, dx)
-            err = norm(Resh) / sqrt(length(Resh)) # still need to understand this criteria
-            # err = norm(Resh) / norm(h)
-            # err = norm(Resh[2:end-1]) / norm(h[2:end-1])
-            # end
+            check_res!(Resh, b, h, h_old, q, dt, dx)
+            # compute residual norm and relative change norm
+            err = norm(Resh) / norm(b)
+            rel_change = norm(h_k - h) / norm(h)
+
         end
 
         if it % nvistot == 0

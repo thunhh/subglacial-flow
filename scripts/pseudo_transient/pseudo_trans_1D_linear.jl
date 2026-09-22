@@ -16,33 +16,19 @@ end
 end
     
 @views function compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
-    # @. h = (h + dτ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ/dt)
-    # only update inner points
     @. h[2:end-1] = (h[2:end-1] + dτ * (h_old[2:end-1] / dt - (q[3:end-1] - q[2:end-2]) / dx)) / (1 + dτ/dt)
     # @. h = (h + dτ_ρ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ_ρ/dt)
     return
 end
 
-
-@views function check_res!(Resh, r, h, h_old, q, dt, dx)
-    @. Resh = - (h - h_old) / dt - (q[2:end] - q[1:end-1]) / dx  
-    @. r = - (h[2:end-1] - h_old[2:end-1]) / dt - $diff(q[2:end-1]) /dx
-    # @. Resh = (h[2:end-1] - h_old[2:end-1]) / dt - $diff(k * $avx(h) * $diff(ρⁱg * H + ρʷg * (B + h)) / dx) / dx
-    println("match", maximum(Resh[2:end-1] - r))
-    return
-end 
-
-# only differentiate every nvis steps
 function update_h!(h, h_old, φ, ∇φ, q, r, k, ρⁱg, ρʷg, H, B, dt, dτ, dτ_ρ, dx)
-    # compute_grad_phi!(∇φ, φ, dx)
 
     compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
     compute_flux!(h, q, φ, ∇φ, k, dx)
     compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
 
-    @views @. r = -(h[2:end-1] - h_old[2:end-1]) / dt - $diff(q[2:end-1]) / dx
-
-    return r
+    @. r = -(h[2:end-1] - h_old[2:end-1]) / dt - $diff(q[2:end-1]) / dx
+    return
 end
 
 function pseudo_1D_lin()
@@ -55,7 +41,7 @@ function pseudo_1D_lin()
     nx   = 100
     nvis = 100 # 1000
     nvistot = 100
-    tol  = 1e-8
+    tol  = 1e-12
     tol_change = 1e-14
     maxiter = 1e5
     t_end = 1e5 #1e6 #1.0     # total simulation time
@@ -76,21 +62,18 @@ function pseudo_1D_lin()
     φ   = zeros(nx)
     ∇φ  = zeros(nx - 1)
     q   = zeros(nx + 1)
-    σnn = zeros(nx)
-    Resh = zeros(nx)
     r = zeros(nx - 2)
-    # b = zeros(nx)
-    b = 1
-    println("length", length(Resh))
-    D = zeros(nx)
     Re = zeros(nx)
     dτ_ρ = zeros(nx)
 
+    # arrays for autodiff
+    h_k = zeros(nx)
     h̄ = zeros(nx)
     r̄ = zeros(nx - 2)
     φ_dev = zeros(nx)
     ∇φ_dev = zeros(nx-1)
     q_dev = zeros(nx+1)
+    b = zeros(nx - 2)
 
     # initialisation
     # H - ice thickness
@@ -98,21 +81,16 @@ function pseudo_1D_lin()
     @. H[xn>9lx/10] = 0
     # B - bed elevation
     @. B = 1.4e3 + 0.2e3 * sin(6π * xn / lx) - xn / 1e2
-    # σnn - overburden pressure (of ice sheet)
-    @. σnn = ρⁱg * H
 
     # provisorisches dτ
     CFL    = 0.99       # CFL number
-    # Derived numerics
-    # dx     = lx / nx      # grid size
-    D = k * maximum(h)
     Vpdτ   = CFL * dx
+    D = 1
     Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-    dτ_ρ  = lx / Vpdτ / Re
-    # println("dτ_ρ = ", dτ_ρ)
+    dτ_ρ  = lx / Vpdτ / Re      # not needed for non-accelerated pseudo transient method
+
 
     dτ = 1
-    D = zeros(nx)
     # dτ_ρ = 0.01
 
     # figure
@@ -138,28 +116,13 @@ function pseudo_1D_lin()
         rel_change = 2 * tol
 
         # pseudo-transient time loop
-        while rel_change > tol_change && iter < maxiter
-        #while err > tol && iter < maxiter
-            h_k = copy(h)
-            @. D = k * h
-            dτ_stab = dx^2 / 2 / max(maximum(D[2:end-1]), epsi)/ ρʷg
-            dτ = dτ_stab
-
-            # how to limit dτ?
-            # dτ = min(dτ_stab, 5)
+        while (err > tol || rel_change > tol_change) && iter < maxiter            
+            dτ = dx^2 / 2 / max(maximum(k * h[2:end-1]), epsi)/ ρʷg
 
             # @. Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
             # @. dτ_ρ = lx * Vpdτ / Re / max(D, epsi)
-            # println("dtau_rho = ", dτ_ρ)
-            
-            # compute_flux!(h, q, φ, ∇φ, k, dx)
-            # compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
         
-
-            # if iter % nvis == 0
-            # check_res!(Resh, r, h, h_old, q, dt, dx)
-
-        
+            h_k .= h
             h̄ .= h
             r̄ .= 0
             φ_dev .= 0 
@@ -169,17 +132,13 @@ function pseudo_1D_lin()
             h[end] = 4.2e3
             iter += 1
             
-            Enzyme.autodiff(set_runtime_activity(Enzyme.Forward), update_h!, Const, Duplicated(r, r̄), Duplicated(h, h̄), Const(h_old), Duplicated(φ, φ_dev), Duplicated(∇φ, ∇φ_dev), Duplicated(q, q_dev), Const(k), Const(ρⁱg), Const(ρʷg), Const(H), Const(B), Const(dt), Const(dx))
-            @. b = r - r̄
-
-            display(b)
-            display(norm(b, Inf))
-            # compute residual norm and relative change norm
-            # norm_b = norm(h_old[2:end-1]) / dt
-            # # err = norm(Resh) / norm_b
-            # err = norm(Resh) / b
-            rel_change = norm(h_k[2:end-1] - h[2:end-1]) / norm(h[2:end-1])
-
+            if iter % 10 == 0
+                Enzyme.autodiff(set_runtime_activity(Enzyme.Forward), update_h!, Const, Duplicated(h, h̄), Const(h_old), Duplicated(φ, φ_dev), Duplicated(∇φ, ∇φ_dev), Duplicated(q, q_dev), Duplicated(r, r̄), Const(k), Const(ρⁱg), Const(ρʷg), Const(H), Const(B), Const(dt), Const(dτ), Const(dτ_ρ), Const(dx))
+                @. b = r - r̄
+                # err = norm(r) / norm(b)
+                err = norm(r, Inf) / norm(b, Inf)
+                rel_change = norm(h_k[2:end-1] - h[2:end-1]) / norm(h[2:end-1])
+            end
         end
 
         if it % nvistot == 0
@@ -195,9 +154,10 @@ function pseudo_1D_lin()
             plt[4][2] = φ ./ 1e5
             plt[5][2] = ∇φ ./ 1e2
             display(fig)
+
             h_less = h[h .< -eps()]
             println("H below 0: ", h_less)
-            # @assert all(h.>= 0);
+            # @assert all(h.>= - eps());
 
         end
         ittot += iter

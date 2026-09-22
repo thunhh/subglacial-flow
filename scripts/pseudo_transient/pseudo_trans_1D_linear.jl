@@ -15,17 +15,17 @@ end
     return
 end
     
-@views function compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
+@views function compute_update!(h, q, h_old, dt, dτ, dx)
     @. h[2:end-1] = (h[2:end-1] + dτ * (h_old[2:end-1] / dt - (q[3:end-1] - q[2:end-2]) / dx)) / (1 + dτ/dt)
     # @. h = (h + dτ_ρ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ_ρ/dt)
     return
 end
 
-function update_h!(h, h_old, φ, ∇φ, q, r, k, ρⁱg, ρʷg, H, B, dt, dτ, dτ_ρ, dx)
+function update_h!(h, h_old, φ, ∇φ, q, r, k, ρⁱg, ρʷg, H, B, dt, dτ, dx)
 
     compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
     compute_flux!(h, q, φ, ∇φ, k, dx)
-    compute_update!(h, q, h_old, dt, dτ, dτ_ρ, dx)
+    compute_update!(h, q, h_old, dt, dτ, dx)
 
     @. r = -(h[2:end-1] - h_old[2:end-1]) / dt - $diff(q[2:end-1]) / dx
     return
@@ -63,8 +63,6 @@ function pseudo_1D_lin()
     ∇φ  = zeros(nx - 1)
     q   = zeros(nx + 1)
     r = zeros(nx - 2)
-    Re = zeros(nx)
-    dτ_ρ = zeros(nx)
 
     # arrays for autodiff
     h_k = zeros(nx)
@@ -85,13 +83,12 @@ function pseudo_1D_lin()
     # provisorisches dτ
     CFL    = 0.99       # CFL number
     Vpdτ   = CFL * dx
-    D = 1
-    Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-    dτ_ρ  = lx / Vpdτ / Re      # not needed for non-accelerated pseudo transient method
+    # D = 1
+    # Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
+    # dτ_ρ  = lx / Vpdτ / Re      # not needed for non-accelerated pseudo transient method
 
 
     dτ = 1
-    # dτ_ρ = 0.01
 
     # figure
     fig = Figure(; size=(600, 600))
@@ -128,12 +125,12 @@ function pseudo_1D_lin()
             φ_dev .= 0 
             ∇φ_dev .= 0
             q_dev .= 0
-            update_h!(h, h_old, φ, ∇φ, q, r, k, ρⁱg, ρʷg, H, B, dt, dτ, dτ_ρ, dx)
+            update_h!(h, h_old, φ, ∇φ, q, r, k, ρⁱg, ρʷg, H, B, dt, dτ, dx)
             h[end] = 4.2e3
             iter += 1
             
             if iter % 10 == 0
-                Enzyme.autodiff(set_runtime_activity(Enzyme.Forward), update_h!, Const, Duplicated(h, h̄), Const(h_old), Duplicated(φ, φ_dev), Duplicated(∇φ, ∇φ_dev), Duplicated(q, q_dev), Duplicated(r, r̄), Const(k), Const(ρⁱg), Const(ρʷg), Const(H), Const(B), Const(dt), Const(dτ), Const(dτ_ρ), Const(dx))
+                Enzyme.autodiff(set_runtime_activity(Enzyme.Forward), update_h!, Const, Duplicated(h, h̄), Const(h_old), Duplicated(φ, φ_dev), Duplicated(∇φ, ∇φ_dev), Duplicated(q, q_dev), Duplicated(r, r̄), Const(k), Const(ρⁱg), Const(ρʷg), Const(H), Const(B), Const(dt), Const(dτ), Const(dx))
                 @. b = r - r̄
                 # err = norm(r) / norm(b)
                 err = norm(r, Inf) / norm(b, Inf)
@@ -143,7 +140,6 @@ function pseudo_1D_lin()
 
         if it % nvistot == 0
             println("t = ", t, ", physical step = ", it, ", pseudo iterations = ", iter)
-            # println("dτ_ρ = ", dτ_ρ)
             println("dτ = ",dτ)
             println("error at final pseudo transient step = ", err)
             println("rel change in h_k = ", rel_change)

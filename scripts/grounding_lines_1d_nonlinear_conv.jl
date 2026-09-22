@@ -12,8 +12,9 @@ function grounding_lines_1d()
     betha = 3/2
     # numerics
     nx   = 100
-    nt   = 50000 #100000
+    nt   = 100000 #50000 
     nvis = 5000 # 1000
+    t_end = 1e5
     # preprocessing
     dx = lx / (nx - 1)
     xn = LinRange(0, lx, nx)
@@ -49,7 +50,9 @@ function grounding_lines_1d()
     display(fig)
     # time loop
     tcur = 0.0
-    for it in 1:nt
+    # for it in 1:nt
+    it = 0
+    while tcur <= t_end
         # (overburden) hydraulic potential = overburden pressure + elevation potential + water pressure
         @. φ  = σnn + ρʷg * (B + h)
         @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
@@ -67,8 +70,9 @@ function grounding_lines_1d()
         dta = dx / k / maximum(abs, ∇φ) / 2.1
 
         # diffusive time step
-        dtd = dx^2 / (k * ρʷg * maximum(h)^alpha * (max(maximum(abs.(∇φ)), 1e-5)^(betha - 2))) / 10 #/ 2.1
-        # dtd = dx^2 / (k * ρʷg * maximum(h)^alpha * maximum(abs.(∇φ))^(betha - 2)) / 10 # / 2.1
+        # dtd = dx^2 / (k * ρʷg * maximum(h)^alpha * (max(maximum(abs.(∇φ)), 1e-5)^(betha - 2))) / 10 #/ 2.1
+        D_eff = k .* h[1:end-1].^alpha .* (betha - 1) .* ρʷg .* (∇φ.^2 .+ eps()).^((betha - 2)/2)
+        dtd = dx^2 / 2.1 / maximum(D_eff)
 
         dt = min(dta, dtd) 
         # update water sheet thickness using explicit euler scheme
@@ -87,7 +91,16 @@ function grounding_lines_1d()
             display(fig)
         end
         tcur += dt
+        it += 1
     end
+    println(it, " iterations needed to reach T = ", t_end)
+
+    plt[2][3] = B .+ h
+    plt[3][2] = B .+ h
+    plt[3][3] = B .+ h .+ H
+    plt[4][2] = φ ./ 1e5
+    plt[5][2] = ∇φ ./ 1e2
+    display(fig)
     return
 end
 

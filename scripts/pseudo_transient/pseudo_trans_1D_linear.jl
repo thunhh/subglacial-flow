@@ -114,7 +114,8 @@ function pseudo_1D_lin()
 
         # pseudo-transient time loop
         while (err > tol || rel_change > tol_change) && iter < maxiter            
-            dτ = dx^2 / 2 / max(maximum(k * h[2:end-1]), epsi)/ ρʷg
+            dτ = dx^2 / 2.1 / max(maximum(k * h[2:end-1]), epsi)/ ρʷg
+            println("dτ = ",  dτ)
 
             # @. Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
             # @. dτ_ρ = lx * Vpdτ / Re / max(D, epsi)

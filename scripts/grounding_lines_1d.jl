@@ -1,5 +1,8 @@
 using CairoMakie
 using Printf
+using Statistics
+using LinearAlgebra
+
 
 function grounding_lines_1d()
     # physics
@@ -9,8 +12,14 @@ function grounding_lines_1d()
     ρʷg = 1000.0 * 9.81
     # numerics
     nx   = 100
-    nt   = 100000 #100000
-    nvis = 20000 # 1000
+    # nt   = 100000 #100000
+    nvis = 1000 # 1000
+    min_DT = Inf
+
+    t_end = 1e5 #1e6 #1.0     # total simulation time
+    dt = 10 #20 #11.5 for the 1D script
+    nt = Int(ceil(t_end/dt))
+
     # preprocessing
     dx = lx / (nx - 1)
     xn = LinRange(0, lx, nx)
@@ -30,6 +39,7 @@ function grounding_lines_1d()
     @. B = 1.4e3 + 0.2e3 * sin(6π * xn / lx) - xn / 1e2
     # σnn - overburden pressure (of ice sheet)
     @. σnn = ρⁱg * H
+
     # figure
     fig = Figure(; size=(600, 600))
     axs = (Axis(fig[1, 1]; ylabel="z [m]"),
@@ -55,7 +65,8 @@ function grounding_lines_1d()
         dta = dx / k / maximum(abs, ∇φ) / 2.1
         # diffusive time step
         dtd = dx^2 / (k * ρʷg * maximum(h)) / 2.1
-        dt = min(dta, dtd) 
+        # dt = min(dta, dtd)
+        min_DT = min(min_DT, dt)
         # update water sheet thickness using explicit euler scheme
         # y' approx. by (q[2:end] - q[1:end-1]) / dx forward differnces
         @. h -= dt * (q[2:end] - q[1:end-1]) / dx
@@ -63,6 +74,7 @@ function grounding_lines_1d()
         # update plot
         if it % nvis == 0
             @printf(" t = %.1f d, dt [adv] = %1.3e d, dt [dif] = %1.3e d\n", tcur / 3600 / 24, dta / 3600 / 24, dtd / 3600 / 24)
+            println(min_DT)
 
             plt[2][3] = B .+ h
             plt[3][2] = B .+ h
@@ -73,6 +85,26 @@ function grounding_lines_1d()
         end
         tcur += dt
     end
+    
+
+    ## statistics for scaling the error
+    h0_rms = norm(h[2:end-1]) / sqrt(length(h[2:end-1]))
+    h0_max = maximum(h[2:end-1])
+    println("h0_rms = ", h0_rms)
+    println("h0_max = ", h0_max)
+    phi_x = @views diff(σnn .+ ρʷg .* (B .+ h)) ./ dx
+
+    Gphi_rms = norm(phi_x) / sqrt(length(phi_x))
+    h0 = norm(h[2:end-1]) / sqrt(length(h[2:end-1]))
+
+    Lchar = lx   # or another relevant horizontal scale
+
+    Rchar = k * h0 * Gphi_rms / Lchar
+
+    println("Gphi_rms = ", Gphi_rms)
+    println("h0 = ", h0)
+    println("Rchar = ", Rchar)
+
     return
 end
 

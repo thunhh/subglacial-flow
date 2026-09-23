@@ -87,8 +87,9 @@ function grounding_lines_1d()
         # with ghost cells
         # @. φ[2:end-1, 2:end-1]  = σnn + ρʷg * (B + h)
         @. φ  = σnn + ρʷg * (B + h)
-        @. ∇φ_h = (φ[2:end, :] - φ[1:end-1, :]) / dx
         @. ∇φ_v = (φ[:, 2:end] - φ[:, 1:end-1]) / dy
+        @. ∇φ_h = (φ[2:end, :] - φ[1:end-1, :]) / dx
+
         # regularizor more complex
         #@. epsi = 1e-5 * mean(abs.((φ[2:end] - φ[1:end-1]) ./ (dx)))
 
@@ -110,7 +111,6 @@ function grounding_lines_1d()
         @. A_v = (((φ[2:end, :] - φ[1:end-1, :])/dx)^2 + cdiff_y^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, :] - φ[1:end-1, :]) / dx
         @. A_h = (cdiff_x^2 + ((φ[:, 2:end] - φ[:, 1:end-1])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[:, 2:end] - φ[:, 1:end-1]) / dy
 
-        
         @. a_v = alpha * max(h[1:end-1, :], h[2:end, :])^(alpha - 1)
         @. a_h = alpha * max(h[:, 1:end-1], h[:, 2:end])^(alpha - 1)
          
@@ -127,7 +127,19 @@ function grounding_lines_1d()
         dta = min(dx, dy) / k / max(maximum(abs, ∇φ_h), maximum(abs, ∇φ_v)) / 2.1
         # diffusive time step
         dtd = min(dx^2, dy^2) / (k * ρʷg * maximum(h)) / 2.1
+        C_CFL = 1/2
+        # epsi = 1e-2
+        # D_eff = k .* h[1:end-1, 1:end-1].^alpha .* (max.(∇φ_v[1:end-1, :], ∇φ_h[:, 1:end-1]).^2 .+ eps()).^((betha - 2)/2)
+        
+        # # dτ = C_CFL* min(dx^2, dy^2) / (max(maximum(k * h[2:end-1, 2:end-1]), epsi)) / ρʷg / 4 
+        # dtd = C_CFL * min(dx^2, dy^2) / max(maximum(D_eff), epsi)/ ρʷg / 4
 
+        # also doesnt work
+        # gradphi = max.(sqrt.(∇φ_h[1:end-1, 2:end-1].^2 + ∇φ_v[2:end-1, 1:end-1].^2), 1e-5)
+        # D_eff = ρʷg .* k .* h[2:end-1, 2:end-1].^alpha .* gradphi.^(betha - 2)
+        # D_max = max(maximum(D_eff), 1e-2)
+        # dtd = C_CFL * min(dx, dy)^2 / (4 * D_max)
+        
         dt = min(dta, dtd) 
         # update water sheet thickness using explicit euler scheme
         # y' approx. by (q[2:end] - q[1:end-1]) / dx forward differnces

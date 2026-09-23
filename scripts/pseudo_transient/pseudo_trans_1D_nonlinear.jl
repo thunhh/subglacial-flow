@@ -10,7 +10,6 @@ using Enzyme
     return m
 end
 
-
 @views function compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
     @. φ  = ρⁱg * H + ρʷg * (B + h)
     return
@@ -20,7 +19,7 @@ end
     @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
     @. A = (∇φ^2 + eps())^(betha/2 - 1) * ∇φ
     # @. a = alpha * max(h[1:end-1], h[2:end])^(alpha - 1)
-    # with smooth max to have differentiable function
+    # with smoothmax to have differentiable function
     @. a = alpha * $smoothmax(h)^(alpha - 1)
 
     @. q[2:end-1] = -k * 0.5 * (h[1:end-1]^alpha + h[2:end]^alpha) * A - k * a * 0.5 * abs(A) * (h[2:end] - h[1:end-1])
@@ -62,6 +61,7 @@ function pseudo_1D_lin()
     dt = 40 #20 #11.5 for the 1D script
     nt = Int(ceil(t_end/dt))
     epsi = 1e-2
+    D_eff = 1
 
     # preprocessing
     dx = lx / (nx - 1)
@@ -133,8 +133,8 @@ function pseudo_1D_lin()
 
         # pseudo-transient time loop
         while (err > tol || rel_change > tol_change) && iter < maxiter            
-            D_eff = k .* h[1:end-1].^alpha .* (betha - 1) .* ρʷg .* (∇φ.^2 .+ eps()).^((betha - 2)/2)
-            dτ = dx^2 / 2.1 / max(maximum(D_eff), epsi)
+            D_eff = k .* h[1:end-1].^alpha .* ρʷg .* (∇φ.^2 .+ eps()).^((betha - 2)/2)
+            dτ = dx^2 / 2.1 / max(maximum(D_eff), epsi) / 2     # C_CFL = 1/2
 
             # @. Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
             # @. dτ_ρ = lx * Vpdτ / Re / max(D, epsi)
@@ -173,6 +173,8 @@ function pseudo_1D_lin()
             plt[5][2] = ∇φ ./ 1e2
             display(fig)
 
+            println(D_eff)
+
             h_less = h[h .< -eps()]
             # println("H below 0: ", h_less)
             # @assert all(h.>= - eps());
@@ -187,7 +189,7 @@ function pseudo_1D_lin()
     end
 
     @printf("Total time = %1.2f, time steps = %d, nx = %d, iterations tot = %d \n", round(t_end, sigdigits=2), it, nx, ittot)   
-
+    println(D_eff)
     # figure
     plt[2][3] = B .+ h
     plt[3][2] = B .+ h

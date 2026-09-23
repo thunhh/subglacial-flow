@@ -12,8 +12,7 @@ function grounding_lines_1d()
     betha = 3/2
     # numerics
     nx   = 100
-    nt   = 100000 #50000 
-    nvis = 5000 # 1000
+    nvis = 1000 # 1000
     t_end = 1e5
     # preprocessing
     dx = lx / (nx - 1)

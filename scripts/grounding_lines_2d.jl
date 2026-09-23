@@ -13,6 +13,7 @@ function grounding_lines_2d()
     ny   = 100
     nt   = 100000 #100000
     nvis = 20000 # 1000 # 20000
+    epsi = 1e-2
     # preprocessing
     dx = lx / (nx - 1)
     dy = ly / (ny - 1)
@@ -30,7 +31,6 @@ function grounding_lines_2d()
     σnn = zeros(nx, ny)
     # initialisation
     # H - ice thickness
-    #H .= reshape(@. 4000.0 - xn / 1e2, :, 1)
     H .= 4000.0 .- reshape(xn, :, 1) ./ 1e2
     H[xn .> 9lx/10, :] .= 0
     # B - bed elevation
@@ -87,61 +87,32 @@ function grounding_lines_2d()
     # surface!(ax, X, Y, Z3, color=:cyan, transparency=true, alpha=0.8)
 
     # figure 3D
-    # fig = Figure(size = (800, 600))
+    fig = Figure(size = (800, 600))
 
-    # ax = Axis3(fig[1, 1],
-    #     xlabel = "x [km]",
-    #     ylabel = "y [km]",
-    #     zlabel = "z [m]"
-    # )
+    ax = Axis3(fig[1, 1],
+        xlabel = "x [km]",
+        ylabel = "y [km]",
+        zlabel = "z [m]"
+    )
 
-    # X = xn ./ 1e3
-    # Y = yn ./ 1e3
+    X = xn ./ 1e3
+    Y = yn ./ 1e3
 
-    # p1 = surface!(ax, X, Y, B,
-    #     color=:brown, transparency=true, alpha=0.8)
+    p1 = surface!(ax, X, Y, B,
+        color=:brown, transparency=true, alpha=0.8)
 
-    # p2 = surface!(ax, X, Y, B .+ h,
-    #     color=:blue, transparency=true, alpha=0.8)
+    p2 = surface!(ax, X, Y, B .+ h,
+        color=:blue, transparency=true, alpha=0.8)
 
-    # p3 = surface!(ax, X, Y, B .+ h .+ H,
-    #     color=:lightblue, transparency=true, alpha=0.8)
+    p3 = surface!(ax, X, Y, B .+ h .+ H,
+        color=:lightblue, transparency=true, alpha=0.8)
 
 
-    # display(fig)
+    display(fig)
 
     # time loop
     tcur = 0.0
-    #     # (overburden) hydraulic potential = overburden pressure + elevation potential + water pressure
-    #     @. φ  = σnn + ρʷg * (B + h)
-    #     @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
-    #     # Darcy(-Weisbach) water flux
-    #     @. q[2:end-1] = -k * 0.5 * (h[1:end-1] + h[2:end]) * ∇φ - k * 0.5 * abs(∇φ) * (h[2:end] - h[1:end-1])
-    #     # advective time step
-    #     dta = dx / k / maximum(abs, ∇φ) / 2.1
-    #     # diffusive time step
-    #     dtd = dx^2 / (k * ρʷg * maximum(h)) / 2.1
-    #     dt = min(dta, dtd) 
-    #     # update water sheet thickness using explicit euler scheme
-    #     # y' approx. by (q[2:end] - q[1:end-1]) / dx forward differnces
-    #     @. h -= dt * (q[2:end] - q[1:end-1]) / dx
-    #     h[end] = 4.2e3
-    #     # update plot
-    #     if it % nvis == 0
-    #         @printf(" t = %.1f d, dt [adv] = %1.3e d, dt [dif] = %1.3e d\n", tcur / 3600 / 24, dta / 3600 / 24, dtd / 3600 / 24)
-
-    #         plt[2][3] = B .+ h
-    #         plt[3][2] = B .+ h
-    #         plt[3][3] = B .+ h .+ H
-    #         plt[4][2] = φ ./ 1e5
-    #         plt[5][2] = ∇φ ./ 1e2
-    #         display(fig)
-    #     end
-    #     tcur += dt
-    # end
-
-    # time loop
-    # tcur = 0.0
+   
     for it in 1:nt
         # (overburden) hydraulic potential = overburden pressure + elevation potential + water pressure
         @. φ  = σnn + ρʷg * (B + h)
@@ -151,26 +122,24 @@ function grounding_lines_2d()
         @. q_h[2:end-1, :] = -k * 0.5 * (h[1:end-1, :] + h[2:end, :]) * ∇φ_h - k * 0.5 * abs(∇φ_h) * (h[2:end, :] - h[1:end-1, :])
         @. q_v[:, 2:end-1] = -k * 0.5 * (h[:, 1:end-1] + h[:, 2:end]) * ∇φ_v - k * 0.5 * abs(∇φ_v) * (h[:, 2:end] - h[:, 1:end-1])
         # advective time step
-        dta = min(dx, dy) / k / max(maximum(abs, ∇φ_h), maximum(abs, ∇φ_v)) / 2.1
+        dta = min(dx, dy) / k / max(maximum(abs, ∇φ_h), maximum(abs, ∇φ_v)) / 4 / 2
         # diffusive time step
-        dtd = min(dx^2, dy^2) / (k * ρʷg * maximum(h)) / 2.1
+        dtd = min(dx^2, dy^2) / (max(maximum(k * h[2:end-1, 2:end-1]), epsi)) / ρʷg / 4 / 2
         dt = min(dta, dtd) 
         # update water sheet thickness using explicit euler scheme
-        # y' approx. by (q[2:end] - q[1:end-1]) / dx forward differnces
-        # @. h -= dt * (q_h[2:end, :] - q_h[1:end-1, :] + q_v[:, 2:end] - q_v[:, 1:end-1]) / dx / dy
         @. h -= dt * ((q_h[2:end, :] - q_h[1:end-1, :]) / dx + (q_v[:, 2:end] - q_v[:, 1:end-1]) / dy)
         h[end, :] .= 4.2e3
         # update plot
-        # if it % nvis == 0
-        #     @printf(" t = %.1f d, dt [adv] = %1.3e d, dt [dif] = %1.3e d\n", tcur / 3600 / 24, dta / 3600 / 24, dtd / 3600 / 24)
+        if it % nvis == 0
+            @printf(" t = %.1f d, dt [adv] = %1.3e d, dt [dif] = %1.3e d\n", tcur / 3600 / 24, dta / 3600 / 24, dtd / 3600 / 24)
 
-        #     p1[3] = B
-        #     p2[3] = B .+ h
-        #     p3[3] = B .+ h .+ H
+            p1[3] = B
+            p2[3] = B .+ h
+            p3[3] = B .+ h .+ H
 
-        #     display(fig)
-        # end
-        # tcur += dt
+            display(fig)
+        end
+        tcur += dt
 
     end
     return

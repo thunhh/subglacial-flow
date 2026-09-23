@@ -75,6 +75,7 @@ function pseudo_2D_lin()
     q_v   = zeros(nx, ny + 1)
     r = zeros(nx-2, ny-2)
 
+    
     # arrays for autodiff
     h_k = zeros(nx,ny)
     h̄ = zeros(nx, ny)
@@ -150,7 +151,31 @@ function pseudo_2D_lin()
                 q_h_dev .= 0
                 q_v_dev .= 0
 
-                Enzyme.autodiff(set_runtime_activity(Enzyme.Forward), residual!, Const, Duplicated(r, r̄), Duplicated(h, h̄), Const(h_old), Duplicated(φ, φ_dev), Duplicated(∇φ_h, ∇φ_h_dev), Duplicated(∇φ_v, ∇φ_v_dev), Duplicated(q_h, q_h_dev), Duplicated(q_v, q_v_dev), Const(k), Const(ρⁱg), Const(ρʷg), Const(H), Const(B), Const(dt), Const(dx), Const(dy))
+                Enzyme.autodiff(
+                    set_runtime_activity(Enzyme.Forward),
+                    residual!,
+                    Const,
+                    
+                    Duplicated(r, r̄),
+                    Duplicated(h, h̄),
+                    
+                    Const(h_old),
+                    
+                    Duplicated(φ, φ_dev),
+                    Duplicated(∇φ_h, ∇φ_h_dev),
+                    Duplicated(∇φ_v, ∇φ_v_dev),
+                    Duplicated(q_h, q_h_dev),
+                    Duplicated(q_v, q_v_dev),
+                    
+                    Const(k),
+                    Const(ρⁱg),
+                    Const(ρʷg),
+                    Const(H),
+                    Const(B),
+                    Const(dt),
+                    Const(dx),
+                    Const(dy)
+                )                
                 @. b = r - r̄
                 # err = norm(r) / norm(b)
                 err = norm(r, Inf) / norm(b, Inf)

@@ -5,7 +5,7 @@ using Printf
 ETA_N   = (2^10 / (3^4 * pi^3))^(1/8)
 V       = 1
 G_      = 1
-Q_0     = pi #pi/2 #1.0301548313168503
+Q_0     = pi 
 
 function front(t, q)
     t_0 = 1e-8
@@ -20,18 +20,9 @@ function profile(x, t)
     g       = 9.81
     g_      = (rho_w - rho_a) / g
     v       = 1.004e-6  # viscosity for 20° C water
-    
-    
-    Q = Q_0 #1.0301548313168503 #0.2219401304692966 #0.047815551619325485
+    Q = Q_0 
     t_0 = 1e-8 #0.0001
     T   = t_0 + t
-
-    # L = eta_n * (g_ * Q^3 * T / 3 / v)^(1/5)
-    # println("front = ", L)
-    # L = 1.0
-    # qq = ((L/eta_n)^5 * 3 * v / g_ / T)^(1/3)
-    # println("initial volume = ",qq)
-
 
     eta = (1/3 * g_ * Q^3 / v)^(-1/8) .* x .* T^(-1/8)
     y = min.(abs.(eta ./ ETA_N), 1.0)
@@ -131,11 +122,6 @@ end
 
     
     hᵉ = profile(re, 0.0)
-    # H_0 = maximum(hᵉ)
-    # R_0 = front(0.0, Q_0)
-
-    # h = profile(r, 0.0)
-
     # initial front position
     Rsᵉ = Point2f[(0.0, front(0.0, Q_0))] 
     Rs = copy(Rsᵉ)  
@@ -144,24 +130,12 @@ end
     # visualisation
     fig = Figure()
 
-    axs = (Axis(fig[1, 1]; title="Flow profile", xlabel="x", ylabel="H"),
-           Axis(fig[2, 1]; title="Front position", xlabel="t", ylabel="xᶠ"))
+    axs = (Axis(fig[1, 1]; title="Flow profile", xlabel="x", ylabel="H"),)
     axs[1].title = "Flow profile - initial conditions"
-
-    # plt = (lines!(axs[1], xc, h[:, j]; color=:blue, label="initial"),
-    #        lines!(axs[1], xc, h[:, j]; color=:red, label="numerical"),
-    #        lines!(axs[1], xc, hᵉ; color=:black, linestyle=:dash, label="exact"),
-    #        lines!(axs[1], xc, h_deg; color=:green, label="deg sol"),
-    #         lines!(axs[2], Rs; color=:red, label="numerical"),
-    #         lines!(axs[2], Rsᵉ; color=:black, linestyle=:dash, label="exact from formula"),
-    #         lines!(axs[2], Rsee; color=:black, label="exact from vector"))
 
     plt = (lines!(axs[1], xc, h[:, j]; color=:blue, label="initial"),
            lines!(axs[1], xc, h[:, j]; color=:red, label="numerical"),
-           lines!(axs[1], xc, h_deg; color=:green, linestyle=:dash, label="deg sol"),
-            lines!(axs[2], Rs; color=:red, label="numerical"),
-            lines!(axs[2], Rsᵉ; color=:black, linestyle=:dash, label="exact from formula"),
-            lines!(axs[2], Rsee; color=:black, label="exact from vector"))
+           lines!(axs[1], xc, h_deg; color=:green, linestyle=:dash, label="deg sol"))
     axislegend(axs[1], labelsize=10)
     # axislegend(axs[2]; position=:lt, labelsize=10)
     axislegend(
@@ -239,37 +213,9 @@ end
                 end
             end
 
-            # update plot
-            # axs[1].title = "Flow profile —  t = $(@sprintf("%.3e", t_n))"
-            # plt[2][2] = h[:, j]
-            # plt[3][2] = hᵉ
-            # plt[4][2] = h_deg
-            # plt[5][1] = Rs
-            # plt[6][1] = Rsᵉ
-            # display(fig)
-
-            # fig1 = Figure(size=(900, 700))
-            # ax = Axis3(
-            #     fig1[1, 1],
-            #     xlabel="x",
-            #     ylabel="y",
-            #     zlabel="h(x,y,0)",
-            #     title="Numerical solution at t = $(@sprintf("%.3e", t_n))"
-            # )
-
-            # surface!(
-            #     ax, xc, yc, h;
-            #     colormap=:viridis
-            # )
-
-            # display(fig1)
-
-
             axs[1].title = "Flow profile —  t = $(@sprintf("%.3e", t_n))"
             plt[2][2] = h[:, j]
             plt[3][2] = h_deg
-            plt[4][1] = Rs
-            plt[5][1] = Rsᵉ
             display(fig)
         end
     end

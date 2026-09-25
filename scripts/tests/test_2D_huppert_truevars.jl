@@ -23,22 +23,10 @@ function profile(x, t)
     g       = 9.81
     g_      = (rho_w - rho_a) / g
     v       = 1.004e-6  # viscosity for 20° C water
-    # Q       = 0.6 #1.2 * pi * 5^2        # water volume
-  
-    # v   = 1
-    # g_  = 1
-    # Q   = 1
-
-    Q = 1.0301548313168503 #0.2219401304692966 #0.047815551619325485
+    Q = 1.0301548313168503 
     eta_n   = (1/5 * (3/10)^(1/3) * pi^(1/2) * gamma(1/3) * gamma(5/6))^(-3/5)
-    t_0 = 1e-8 #0.0001
+    t_0 = 1e-8 
     T   = t_0 + t
-
-    # L = eta_n * (g_ * Q^3 * T / 3 / v)^(1/5)
-    # println("front = ", L)
-    # L = 1.0
-    # qq = ((L/eta_n)^5 * 3 * v / g_ / T)^(1/3)
-    # println("initial volume = ",qq)
 
     # arrays
     nx = length(x)
@@ -49,16 +37,7 @@ function profile(x, t)
 
     # similarity solution
     @. eta  = (1/3 * g_ * Q^3 / v)^(-1/5) * x * T^(-1/5)
-    # println(eta_n)
-    # println(maximum(eta))
-    # println(minimum(eta))
-    # println(minimum(abs.(eta)))
     @. y    = min(abs(eta/eta_n), 1.0)
-    # println("y =", y)
-    # @. y    = max(y, 1.0)
-
-    # println(minimum(y))
-    # println(maximum(y))
     @. phi  = (3/10)^(1/3) * (1 - y^2)^(1/3)
     @. h    = eta_n^(2/3) * (3*Q^2*v/g_)^(1/5) * T^(-1/5) * phi
 
@@ -100,14 +79,6 @@ end
     c = g_/v/3
     d = 1
 
-    # simplified problem variables
-    # ρʷg = 1.0 #1000.0 * 9.81
-    # alpha = 3
-    # c = 1
-    # v = 1
-    # g_ = 1
-    # g = 1
-
     # numerics
     nvis = 2000
     # preprocessing
@@ -145,9 +116,7 @@ end
 
     # initial conditions
     hᵉ = profile(xc, 0.0)
-    println(size(hᵉ))
     h = repeat(hᵉ, 1, ny)
-    println(size(h))
         
     H_0 = maximum(hᵉ)
     R_0 = front(0.0, Q_0)
@@ -163,7 +132,6 @@ end
     # visualisation
     fig = Figure()
     j = argmin(abs.(yc))
-    println("j = ", j)
     
     axs = (Axis(fig[1, 1]; title="Flow profile", xlabel="x", ylabel="H"),
            Axis(fig[2, 1]; title="Front position", xlabel="t", ylabel="xᶠ"))

@@ -128,8 +128,7 @@ function pseudo_2D_lin()
         rel_change = 2 * tol_change
 
         # pseudo-transient time loop
-        # while (err > tol || rel_change > tol_change) && iter < maxiter   
-        while rel_change > tol_change && iter < maxiter   
+        while (err > tol || rel_change > tol_change) && iter < maxiter   
             dτ = min(dx^2, dy^2) / (max(maximum(k * h[2:end-1, 2:end-1]), epsi)) / ρʷg / 4 / 2
             h_k .= h
             

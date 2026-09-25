@@ -107,8 +107,8 @@ end
     # initial conditions
     r = sqrt.(xc.^2 .+ yc'.^2)
     # re = abs.(xc)
-    # j = argmin(abs.(yc))
-    j = 80
+    j = argmin(abs.(yc))
+    #  j = 80 # test also outside the middle axis
     re = r[:, j]
     @. h_deg = profile_deg(re, 0.0, alpha, betha, H_0, R_0, d)
     @. h = profile_deg(r, 0.0, alpha, betha, H_0, R_0, d)

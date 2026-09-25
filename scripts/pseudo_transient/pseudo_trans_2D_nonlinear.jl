@@ -29,9 +29,6 @@ end
     @. A_v = (((φ[2:end, :] - φ[1:end-1, :])/dx)^2 + cdiff_y^2 + eps())^(betha/2 - 1) * (φ[2:end, :] - φ[1:end-1, :]) / dx
     @. A_h = (cdiff_x^2 + ((φ[:, 2:end] - φ[:, 1:end-1])/dy)^2 + eps())^(betha/2 - 1) * (φ[:, 2:end] - φ[:, 1:end-1]) / dy
 
-    # @. a_v = alpha * max(h[1:end-1, :], h[2:end, :])^(alpha - 1)
-    # @. a_h = alpha * max(h[:, 1:end-1], h[:, 2:end])^(alpha - 1)
-
     # use differentiabe function to compute max
     @. a_v = alpha * smoothmax(h[1:end-1, :], h[2:end, :])^(alpha - 1)
     @. a_h = alpha * smoothmax(h[:, 1:end-1], h[:, 2:end])^(alpha - 1)
@@ -57,7 +54,6 @@ end
 function residual!(r, h, h_old, φ, ∇φ_h, ∇φ_v, q_h, q_v, A_h, A_v, cdiff_x, cdiff_y, a_h, a_v, k, ρⁱg, ρʷg, H, B, alpha, betha, dt, dx, dy)
     compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
     compute_flux!(h, q_h, q_v, φ, ∇φ_h, ∇φ_v, A_h, A_v, cdiff_x, cdiff_y, a_h, a_v, k, alpha, betha, dx, dy)
-    ((q_v[2:end, :] - q_v[1:end-1, :]) / dx + (q_h[:, 2:end] - q_h[:, 1:end-1]) / dy)
     
     @. r = -(h[2:end-1, 2:end-1] - h_old[2:end-1, 2:end-1]) / dt - ((q_v[3:end-1, 2:end-1] - q_v[2:end-2, 2:end-1]) / dx + (q_h[2:end-1, 3:end-1] - q_h[2:end-1, 2:end-2]) / dy)
     return
@@ -79,8 +75,8 @@ function pseudo_2D_lin()
     nvistot = 100
     tol  = 1e-12
     tol_change = 1e-14
-    maxiter = 1e3 #10 #1e5
-    t_end = 60480 #1e5 #1e6 #1.0     # total simulation time
+    maxiter = 1e3  #1e5
+    t_end = 1e5 #60480 #1e5 #1e6    # total simulation time
     dt = 12
     dτ = 1
     nt = Int(ceil(t_end/dt))
@@ -169,10 +165,8 @@ function pseudo_2D_lin()
         rel_change = 2 * tol_change
 
         # pseudo-transient time loop
-        # while (err > tol || rel_change > tol_change) && iter < maxiter   
-        while rel_change > tol_change && iter < maxiter
+        while (err > tol || rel_change > tol_change) && iter < maxiter   
             # D_eff = k .* h[1:end-1, 1:end-1].^alpha .* ρʷg .* (max.(∇φ_v[1:end-1, :], ∇φ_h[:, 1:end-1]).^2 .+ eps()).^((betha - 2)/2)
-            # D_eff = k .* h[1:end-1, 1:end-1].^alpha .* (max.(∇φ_v[1:end-1, :], ∇φ_h[:, 1:end-1]).^2 .+ eps()).^((betha - 2)/2)
 
             # # dτ = C_CFL* min(dx^2, dy^2) / (max(maximum(k * h[2:end-1, 2:end-1]), epsi)) / ρʷg / 4 
             # dτ = C_CFL * min(dx^2, dy^2) / max(maximum(D_eff), epsi)/ ρʷg / 4
@@ -204,43 +198,43 @@ function pseudo_2D_lin()
                 a_h_dev   .= 0
                 a_v_dev   .= 0
 
-                # Enzyme.autodiff(
-                #     set_runtime_activity(Enzyme.Forward),
-                #     residual!,
-                #     Const,
+                Enzyme.autodiff(
+                    set_runtime_activity(Enzyme.Forward),
+                    residual!,
+                    Const,
                     
-                #     Duplicated(r, r̄),
-                #     Duplicated(h, h̄),
+                    Duplicated(r, r̄),
+                    Duplicated(h, h̄),
                     
-                #     Const(h_old),
+                    Const(h_old),
                     
-                #     Duplicated(φ, φ_dev),
-                #     Duplicated(∇φ_h, ∇φ_h_dev),
-                #     Duplicated(∇φ_v, ∇φ_v_dev),
-                #     Duplicated(q_h, q_h_dev),
-                #     Duplicated(q_v, q_v_dev),
-                #     Duplicated(A_h, A_h_dev),
-                #     Duplicated(A_v, A_v_dev),
-                #     Duplicated(cdiff_x, cdiff_x_dev),
-                #     Duplicated(cdiff_y, cdiff_y_dev),
-                #     Duplicated(a_h, a_h_dev),
-                #     Duplicated(a_v, a_v_dev),
+                    Duplicated(φ, φ_dev),
+                    Duplicated(∇φ_h, ∇φ_h_dev),
+                    Duplicated(∇φ_v, ∇φ_v_dev),
+                    Duplicated(q_h, q_h_dev),
+                    Duplicated(q_v, q_v_dev),
+                    Duplicated(A_h, A_h_dev),
+                    Duplicated(A_v, A_v_dev),
+                    Duplicated(cdiff_x, cdiff_x_dev),
+                    Duplicated(cdiff_y, cdiff_y_dev),
+                    Duplicated(a_h, a_h_dev),
+                    Duplicated(a_v, a_v_dev),
                  
-                #     Const(k),
-                #     Const(ρⁱg),
-                #     Const(ρʷg),
-                #     Const(H),
-                #     Const(B),
-                #     Const(alpha),
-                #     Const(betha),
-                #     Const(dt),
-                #     Const(dx),
-                #     Const(dy)
-                # )
+                    Const(k),
+                    Const(ρⁱg),
+                    Const(ρʷg),
+                    Const(H),
+                    Const(B),
+                    Const(alpha),
+                    Const(betha),
+                    Const(dt),
+                    Const(dx),
+                    Const(dy)
+                )
 
-                # @. b = r - r̄
-                # # err = norm(r) / norm(b)
-                # err = norm(r, Inf) / norm(b, Inf)
+                @. b = r - r̄
+                # err = norm(r) / norm(b)
+                err = norm(r, Inf) / norm(b, Inf)
             end
         end
 
@@ -253,7 +247,9 @@ function pseudo_2D_lin()
             p1[3] = B
             p2[3] = B .+ h
             p3[3] = B .+ h .+ H
+            save("3D.pdf", fig)
             display(fig)
+            
 
             h_less = h[h .< -eps()]
             println("H below 0: ", h_less)

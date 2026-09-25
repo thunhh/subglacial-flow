@@ -2,6 +2,19 @@ using CairoMakie
 using Printf
 using Statistics
 
+@views function compute_entropy_dissipation(h, ∇φ, k, alpha, betha, dx)
+    # h evaluated at the midpoint of each interval
+    h_inter = 0.5 .* (h[1:end-1] .+ h[2:end])
+    # approx integral with midpoint rule
+    I = k * dx * sum(h_inter.^alpha .* abs.(∇φ).^betha)
+    return I
+end
+
+@views function compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
+    @. φ  = ρⁱg * H + ρʷg * (B + h)
+    return
+end
+
 function grounding_lines_1d()
     # physics
     lx  = 100e3
@@ -12,8 +25,10 @@ function grounding_lines_1d()
     betha = 3/2
     # numerics
     nx   = 100
-    nvis = 1000 # 1000
-    t_end = 1e5
+    nvis = 1000000 # 1000
+    nI = 100000
+    nt = 30219505
+    t_end = 2.09952e6 #1e7
     # preprocessing
     dx = lx / (nx - 1)
     xn = LinRange(0, lx, nx)
@@ -28,6 +43,10 @@ function grounding_lines_1d()
     a   = zeros(nx - 1)
     q   = zeros(nx + 1)
     σnn = zeros(nx)
+
+    I_history = Float64[]
+    t_history = Float64[]
+
     # initialisation
     # H - ice thickness
     @. H = 4000.0 - xn / 1e2
@@ -51,7 +70,8 @@ function grounding_lines_1d()
     tcur = 0.0
     # for it in 1:nt
     it = 0
-    while tcur <= t_end
+    while it <= nt
+    # while tcur <= t_end
         # (overburden) hydraulic potential = overburden pressure + elevation potential + water pressure
         @. φ  = σnn + ρʷg * (B + h)
         @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
@@ -88,9 +108,21 @@ function grounding_lines_1d()
             plt[4][2] = φ ./ 1e5
             plt[5][2] = ∇φ ./ 1e2
             display(fig)
+            println(maximum(abs.(q)))
         end
         tcur += dt
         it += 1
+
+        if it % nI == 0
+            # update phi with cnverged h
+            compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
+            @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
+            # compute entropy dissipatin
+            I = compute_entropy_dissipation(h, ∇φ, k, alpha, betha, dx)
+            push!(t_history, tcur)
+            push!(I_history, I)
+        end
+
     end
     println(it, " iterations needed to reach T = ", t_end)
 
@@ -100,6 +132,24 @@ function grounding_lines_1d()
     plt[4][2] = φ ./ 1e5
     plt[5][2] = ∇φ ./ 1e2
     display(fig)
+
+    fig_I = Figure(; size=(700, 400))
+
+    ax_I = Axis(
+        fig_I[1, 1];
+        xlabel = "time",
+        ylabel = "entropy dissipation I(t)",
+        yscale=log10
+    )
+
+    lines!(
+        ax_I,
+        t_history,
+        I_history;
+        linewidth = 2
+    )
+
+    display(fig_I)
     return
 end
 

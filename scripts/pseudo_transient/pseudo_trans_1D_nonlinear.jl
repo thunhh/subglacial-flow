@@ -18,7 +18,6 @@ end
 @views function compute_flux!(h, q, φ, ∇φ, A, a, k, alpha, betha, dx)
     @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
     @. A = (∇φ^2 + eps())^(betha/2 - 1) * ∇φ
-    # @. a = alpha * max(h[1:end-1], h[2:end])^(alpha - 1)
     # with smoothmax to have differentiable function
     @. a = alpha * $smoothmax(h)^(alpha - 1)
 
@@ -28,11 +27,10 @@ end
     
 @views function compute_update!(h, q, h_old, dt, dτ, dx)
     @. h[2:end-1] = (h[2:end-1] + dτ * (h_old[2:end-1] / dt - (q[3:end-1] - q[2:end-2]) / dx)) / (1 + dτ/dt)
-    # @. h = (h + dτ_ρ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ_ρ/dt)
     return
 end
 
-function update_h!(h, h_old, φ, ∇φ, q, A, a, r, k, ρⁱg, ρʷg, H, B, alpha, betha, dt, dτ, dx)
+function update_h!(h, h_old, φ, ∇φ, q, A, a, k, ρⁱg, ρʷg, H, B, alpha, betha, dt, dτ, dx)
 
     compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
     compute_flux!(h, q, φ, ∇φ, A, a, k, alpha, betha, dx)
@@ -40,6 +38,23 @@ function update_h!(h, h_old, φ, ∇φ, q, A, a, r, k, ρⁱg, ρʷg, H, B, alph
 
     @. r = -(h[2:end-1] - h_old[2:end-1]) / dt - $diff(q[2:end-1]) / dx
     return
+end
+
+function residual!(h, h_old, φ, ∇φ, q, A, a, r, k, ρⁱg, ρʷg, H, B, alpha, betha, dt, dx)
+    compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
+    compute_flux!(h, q, φ, ∇φ, A, a, k, alpha, betha, dx)
+    
+    @. r = -(h[2:end-1] - h_old[2:end-1]) / dt - $diff(q[2:end-1]) / dx    
+    return
+end
+
+@views function compute_entropy_dissipation(h, ∇φ, k, alpha, betha, dx)
+    # h evaluated at the midpoint of each interval
+    h_inter = 0.5 .* (h[1:end-1] .+ h[2:end])
+    # approch integral with midpoint rule
+    I = k * dx * sum(h_inter.^alpha .* abs.(∇φ).^betha)
+
+    return I
 end
 
 function pseudo_1D_lin()
@@ -57,7 +72,7 @@ function pseudo_1D_lin()
     tol  = 1e-12
     tol_change = 1e-14
     maxiter = 1e5
-    t_end = 1e5 #1e6 #1.0     # total simulation time
+    t_end = 1e5    # total simulation time
     dt = 40 #20 #11.5 for the 1D script
     nt = Int(ceil(t_end/dt))
     epsi = 1e-2
@@ -72,7 +87,6 @@ function pseudo_1D_lin()
     H   = zeros(nx)
     B   = zeros(nx)
     h   = zeros(nx)
-    # h.= 1e-6
     h_old = zeros(nx)
     φ   = zeros(nx)
     ∇φ  = zeros(nx - 1)
@@ -80,6 +94,9 @@ function pseudo_1D_lin()
     r = zeros(nx - 2)
     A   = zeros(nx - 1)
     a   = zeros(nx - 1)
+
+    I_history = zeros(nt)
+    t_history = zeros(nt)
 
     # arrays for autodiff
     h_k = zeros(nx)
@@ -98,14 +115,6 @@ function pseudo_1D_lin()
     @. H[xn>9lx/10] = 0
     # B - bed elevation
     @. B = 1.4e3 + 0.2e3 * sin(6π * xn / lx) - xn / 1e2
-
-    # provisorisches dτ
-    CFL    = 0.99       # CFL number
-    Vpdτ   = CFL * dx
-    # D = 1
-    # Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-    # dτ_ρ  = lx / Vpdτ / Re      # not needed for non-accelerated pseudo transient method
-
 
     dτ = 1
 
@@ -134,10 +143,7 @@ function pseudo_1D_lin()
         # pseudo-transient time loop
         while (err > tol || rel_change > tol_change) && iter < maxiter            
             D_eff = k .* h[1:end-1].^alpha .* ρʷg .* (∇φ.^2 .+ eps()).^((betha - 2)/2)
-            dτ = dx^2 / 2.1 / max(maximum(D_eff), epsi) / 2     # C_CFL = 1/2
-
-            # @. Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-            # @. dτ_ρ = lx * Vpdτ / Re / max(D, epsi)
+            dτ = dx^2 / 2.1 / max(maximum(D_eff), epsi) / 2    
         
             h_k .= h
             h̄ .= h
@@ -159,12 +165,24 @@ function pseudo_1D_lin()
                 rel_change = norm(h_k[2:end-1] - h[2:end-1]) / norm(h[2:end-1])
             end
         end
+        # update phi with cnverged h
+        compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
+        @. ∇φ = (φ[2:end] - φ[1:end-1]) / dx
+
+        # cmpute entrpy diddipatin
+        I = compute_entropy_dissipation(h, ∇φ, k, alpha, betha, dx)
+
 
         if it % nvistot == 0
             println("t = ", t, ", physical step = ", it, ", pseudo iterations = ", iter)
             println("dτ = ",dτ)
             println("error at final pseudo transient step = ", err)
             println("rel change in h_k = ", rel_change)
+            println("Entropy dissipation I = ", I)
+
+            I_history[it + 1] = I
+            t_history[it + 1] = t
+
 
             plt[2][3] = B .+ h
             plt[3][2] = B .+ h
@@ -173,12 +191,9 @@ function pseudo_1D_lin()
             plt[5][2] = ∇φ ./ 1e2
             display(fig)
 
-            println(D_eff)
-
             h_less = h[h .< -eps()]
-            # println("H below 0: ", h_less)
-            # @assert all(h.>= - eps());
-
+            println("H below 0: ", h_less)
+            
         end
         ittot += iter
         it += 1
@@ -197,6 +212,23 @@ function pseudo_1D_lin()
     plt[4][2] = φ ./ 1e5
     plt[5][2] = ∇φ ./ 1e2
     display(fig)
+
+    fig_I = Figure(; size=(700, 400))
+
+    ax_I = Axis(
+        fig_I[1, 1];
+        xlabel = "time",
+        ylabel = "entropy dissipation I(t)"
+    )
+
+    lines!(
+        ax_I,
+        t_history,
+        I_history;
+        linewidth = 2
+    )
+
+    display(fig_I)
 
     return xn, h
 

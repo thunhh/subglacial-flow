@@ -108,8 +108,8 @@ function grounding_lines_1d()
         @. cdiff_x[1, :] = ((φ[2, 2:end])/dx + (φ[2, 1:end-1])/dx)/4
         @. cdiff_x[end, :] = - ((φ[end-1, 2:end])/dx + (φ[end-1, 1:end-1])/dx)/4
 
-        @. A_v = (((φ[2:end, :] - φ[1:end-1, :])/dx)^2 + cdiff_y^2 + epsi^2)^(betha/2 - 1) * (φ[2:end, :] - φ[1:end-1, :]) / dx
-        @. A_h = (cdiff_x^2 + ((φ[:, 2:end] - φ[:, 1:end-1])/dy)^2 + epsi^2)^(betha/2 - 1) * (φ[:, 2:end] - φ[:, 1:end-1]) / dy
+        @. A_v = (((φ[2:end, :] - φ[1:end-1, :])/dx)^2 + cdiff_y^2 + epsi^2)^(betha/2 - 1) * ∇φ_h
+        @. A_h = (cdiff_x^2 + ((φ[:, 2:end] - φ[:, 1:end-1])/dy)^2 + epsi^2)^(betha/2 - 1) * ∇φ_v
 
         @. a_v = alpha * max(h[1:end-1, :], h[2:end, :])^(alpha - 1)
         @. a_h = alpha * max(h[:, 1:end-1], h[:, 2:end])^(alpha - 1)

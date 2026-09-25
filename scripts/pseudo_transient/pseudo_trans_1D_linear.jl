@@ -17,16 +17,20 @@ end
     
 @views function compute_update!(h, q, h_old, dt, dτ, dx)
     @. h[2:end-1] = (h[2:end-1] + dτ * (h_old[2:end-1] / dt - (q[3:end-1] - q[2:end-2]) / dx)) / (1 + dτ/dt)
-    # @. h = (h + dτ_ρ * (h_old / dt - (q[2:end] - q[1:end-1]) / dx)) / (1 + dτ_ρ/dt)
     return
 end
 
 function update_h!(h, h_old, φ, ∇φ, q, r, k, ρⁱg, ρʷg, H, B, dt, dτ, dx)
-
     compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
     compute_flux!(h, q, φ, ∇φ, k, dx)
     compute_update!(h, q, h_old, dt, dτ, dx)
+    return
+end
 
+function residual!(r, h, h_old, φ, ∇φ, q, r, k, ρⁱg, ρʷg, H, B, dt, dx)
+    compute_phi!(φ, h, ρⁱg, ρʷg, H, B)
+    compute_flux!(h, q, φ, ∇φ, k, dx)
+    
     @. r = -(h[2:end-1] - h_old[2:end-1]) / dt - $diff(q[2:end-1]) / dx
     return
 end
@@ -80,14 +84,6 @@ function pseudo_1D_lin()
     # B - bed elevation
     @. B = 1.4e3 + 0.2e3 * sin(6π * xn / lx) - xn / 1e2
 
-    # provisorisches dτ
-    CFL    = 0.99       # CFL number
-    Vpdτ   = CFL * dx
-    # D = 1
-    # Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-    # dτ_ρ  = lx / Vpdτ / Re      # not needed for non-accelerated pseudo transient method
-
-
     dτ = 1
 
     # figure
@@ -117,21 +113,40 @@ function pseudo_1D_lin()
             dτ = dx^2 / 2.1 / max(maximum(k * h[2:end-1]), epsi)/ ρʷg
             println("dτ = ",  dτ)
 
-            # @. Re     = π + sqrt(π^2 + (lx^2 / max(D, epsi) / dt)) # Numerical Reynolds number
-            # @. dτ_ρ = lx * Vpdτ / Re / max(D, epsi)
-        
             h_k .= h
-            h̄ .= h
-            r̄ .= 0
-            φ_dev .= 0 
-            ∇φ_dev .= 0
-            q_dev .= 0
-            update_h!(h, h_old, φ, ∇φ, q, r, k, ρⁱg, ρʷg, H, B, dt, dτ, dx)
+            update_h!(h, h_old, φ, ∇φ, q, k, ρⁱg, ρʷg, H, B, dt, dτ, dx)
             h[end] = 4.2e3
             iter += 1
             
             if iter % 10 == 0
-                Enzyme.autodiff(set_runtime_activity(Enzyme.Forward), update_h!, Const, Duplicated(h, h̄), Const(h_old), Duplicated(φ, φ_dev), Duplicated(∇φ, ∇φ_dev), Duplicated(q, q_dev), Duplicated(r, r̄), Const(k), Const(ρⁱg), Const(ρʷg), Const(H), Const(B), Const(dt), Const(dτ), Const(dx))
+                h̄ .= h
+                r̄ .= 0
+                φ_dev .= 0 
+                ∇φ_dev .= 0
+                q_dev .= 0
+                Enzyme.autodiff(
+                    set_runtime_activity(Enzyme.Forward),
+                    residual!,
+                    Const,
+                    
+                    Duplicated(r, r̄),
+                    Duplicated(h, h̄),
+                    
+                    Const(h_old),
+                    
+                    Duplicated(φ, φ_dev),
+                    Duplicated(∇φ, ∇φ_dev),
+                    Duplicated(q, q_dev),
+                    
+                    Const(k),
+                    Const(ρⁱg),
+                    Const(ρʷg),
+                    Const(H),
+                    Const(B),
+                    Const(dt),
+                    Const(dx),
+                )       
+                
                 @. b = r - r̄
                 # err = norm(r) / norm(b)
                 err = norm(r, Inf) / norm(b, Inf)
